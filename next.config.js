@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Output as standalone for easy deployment
-  output: 'standalone',
+  // Cloudflare Pages handles routing via opennextjs-cloudflare adapter.
+  // Do NOT use output: 'standalone' — it breaks Cloudflare Pages routing.
 
   // Security headers for all routes
   async headers() {
