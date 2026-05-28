@@ -1,11 +1,19 @@
 // ─── API Client — Thash.videos ───
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-if (!BASE_URL) {
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// During Cloudflare Pages build, NEXT_PUBLIC_API_URL may not be injected.
+// Use a safe fallback for server-side (build-time) so the build doesn't crash.
+// The real URL must be set before any actual API call at runtime.
+const BASE_URL = API_URL || (
+  typeof window === 'undefined' ? 'https://api.videos.thash.app' : ''
+);
+
+if (!API_URL && typeof window !== 'undefined') {
   throw new Error(
     'NEXT_PUBLIC_API_URL is required. Set it to the API server URL (e.g. https://api.videos.thash.app).'
   );
 }
+
 export { BASE_URL };
 
 // ─── Token injection ───
