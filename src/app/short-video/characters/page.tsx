@@ -1,19 +1,15 @@
-export const dynamic = 'force-dynamic';
 'use client';
-
-import { useState, useEffect, useCallback } from 'react';
+export const dynamic = 'force-dynamic';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { videoCharactersApi } from '@/lib/api';
 import type { VideoCharacter } from '@/lib/types';
-
 /* ═══════════════════════════════════════════════════════════════════════
  * /short-video/characters — Visual Factory character management
  * 1:1 replica of Thash-video-design/video-characters.html
  * Phase 3: Replaced seed data with videoCharactersApi calls.
  * ═══════════════════════════════════════════════════════════════════════ */
-
 /* ─── Local view model ─────────────────────────────────────────────── */
-
 interface CharView {
   id: string;
   name: string;
@@ -24,7 +20,6 @@ interface CharView {
   reference_image_url: string;
   created_at: string;
 }
-
 function toView(c: VideoCharacter): CharView {
   return {
     id: c.id,
@@ -37,9 +32,7 @@ function toView(c: VideoCharacter): CharView {
     created_at: c.created_at || '',
   };
 }
-
 /* ─── SVG Icons ─────────────────────────────────────────────────────── */
-
 function IconPlus() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M3 8h10" strokeLinecap="round"/></svg>;
 }
@@ -58,18 +51,13 @@ function IconUsers() {
 function IconImport() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v8M5 8l3 3 3-3M2 13h12"/></svg>;
 }
-
 /* ─── Toast helpers ─────────────────────────────────────────────────── */
-
 let toastIdCounter = 0;
-
 /* ─── Page Component ─────────────────────────────────────────────────── */
-
-export default function VideoCharactersPage() {
+function VideoCharactersPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectId = searchParams.get('projectId') || '';
-
   const [characters, setCharacters] = useState<CharView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,14 +65,12 @@ export default function VideoCharactersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
-
   /* Form state (simplified to match API fields) */
   const [formName, setFormName] = useState('');
   const [formRole, setFormRole] = useState('口播');
   const [formGender, setFormGender] = useState('女');
   const [formAge, setFormAge] = useState('');
   const [formPersonality, setFormPersonality] = useState('');
-
   /* Toast */
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
   const toast = (msg: string) => {
@@ -92,7 +78,6 @@ export default function VideoCharactersPage() {
     setToasts((prev) => [...prev, { id, msg }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
   };
-
   /* ─── Load characters ────────────────────────────────────────────── */
   const loadCharacters = useCallback(async () => {
     setLoading(true);
@@ -106,9 +91,7 @@ export default function VideoCharactersPage() {
       setLoading(false);
     }
   }, []);
-
   useEffect(() => { loadCharacters(); }, [loadCharacters]);
-
   /* ─── Open modal for create ──────────────────────────────────────── */
   const handleOpenCreate = useCallback(() => {
     setEditingId(null);
@@ -119,7 +102,6 @@ export default function VideoCharactersPage() {
     setFormPersonality('');
     setModalOpen(true);
   }, []);
-
   /* ─── Open modal for edit ────────────────────────────────────────── */
   const handleOpenEdit = useCallback((c: CharView) => {
     setEditingId(c.id);
@@ -130,7 +112,6 @@ export default function VideoCharactersPage() {
     setFormPersonality(c.personality || '');
     setModalOpen(true);
   }, []);
-
   /* ─── Save ────────────────────────────────────────────────────────── */
   const handleSave = useCallback(async () => {
     const name = formName.trim();
@@ -160,7 +141,6 @@ export default function VideoCharactersPage() {
       setSaving(false);
     }
   }, [editingId, formName, formRole, formGender, formAge, formPersonality]);
-
   /* ─── Delete ──────────────────────────────────────────────────────── */
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -171,7 +151,6 @@ export default function VideoCharactersPage() {
       toast(`删除失败: ${(err as Error).message}`);
     }
   }, []);
-
   /* ─── Import from drama ───────────────────────────────────────────── */
   const handleImport = useCallback(async () => {
     if (!projectId) { toast('请先选择项目'); return; }
@@ -190,9 +169,7 @@ export default function VideoCharactersPage() {
       setImporting(false);
     }
   }, [projectId]);
-
   const GENDER_OPTIONS = ['男', '女', '中性'];
-
   return (
     <>
       <div className="vch-page">
@@ -211,12 +188,10 @@ export default function VideoCharactersPage() {
             </button>
           </div>
         </div>
-
         {/* Info banner */}
         <div className="vch-banner">
           此处定义的默认角色将自动应用于所有短视频项目。详细 Prompt 和参考图越多，生成的角色一致性越高。
         </div>
-
         {/* Content: loading / error / empty / grid */}
         {loading ? (
           <div className="vch-empty">
@@ -262,7 +237,6 @@ export default function VideoCharactersPage() {
                 </div>
               </div>
             ))}
-
             {/* Add card */}
             <button className="vch-add-card" onClick={handleOpenCreate}>
               <IconPlus />
@@ -280,7 +254,6 @@ export default function VideoCharactersPage() {
           </div>
         )}
       </div>
-
       {/* Character Modal */}
       {modalOpen && (
         <div className="vch-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
@@ -324,7 +297,6 @@ export default function VideoCharactersPage() {
                   </div>
                 </div>
               </div>
-
               {/* Personality */}
               <div className="vch-section-label">性格描述</div>
               <div className="vch-form-group">
@@ -345,10 +317,8 @@ export default function VideoCharactersPage() {
           </div>
         </div>
       )}
-
       <style jsx>{`
         .vch-page { color: var(--fg); }
-
         /* Header */
         .vch-header {
           display: flex; align-items: center; justify-content: space-between;
@@ -357,17 +327,14 @@ export default function VideoCharactersPage() {
         }
         .vch-title { font-size: var(--text-xl); font-weight: 500; margin: 0; font-family: var(--font-display); }
         .vch-sub { font-size: 13px; color: var(--muted); margin: 2px 0 0 0; }
-
         /* Banner */
         .vch-banner {
           margin: 16px 28px; padding: 10px 16px; border-radius: var(--radius-md);
           background: var(--border-soft); border: 1px solid var(--border);
           font-size: 12px; color: var(--muted);
         }
-
         /* Grid */
         .vch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; padding: 0 28px 28px; }
-
         /* Card */
         .vch-card {
           background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -391,7 +358,6 @@ export default function VideoCharactersPage() {
           display: flex; align-items: center; justify-content: center; transition: all 0.15s;
         }
         .vch-icon-btn:hover { background: var(--border-soft); color: var(--fg); }
-
         /* Add card */
         .vch-add-card {
           background: transparent; border: 1px dashed var(--border); border-radius: 10px;
@@ -400,7 +366,6 @@ export default function VideoCharactersPage() {
           font-size: 13px; font-family: var(--font-body); transition: all 0.15s;
         }
         .vch-add-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(62,207,142,0.04); }
-
         /* Empty */
         .vch-empty {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -412,7 +377,6 @@ export default function VideoCharactersPage() {
         }
         .vch-empty-title { font-size: 16px; font-weight: 500; color: var(--fg); margin: 0 0 8px; }
         .vch-empty-desc { font-size: 13px; color: var(--muted); line-height: 1.6; max-width: 340px; margin-bottom: 20px; }
-
         /* Modal */
         .vch-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
         .vch-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 560px; max-width: calc(100vw - 32px); max-height: calc(100vh - 64px); overflow-y: auto; animation: vchScaleIn 0.15s ease; }
@@ -421,7 +385,6 @@ export default function VideoCharactersPage() {
         .vch-modal-title { font-size: 15px; font-weight: 500; color: var(--fg); flex: 1; }
         .vch-modal-body { padding: 20px; }
         .vch-modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
-
         /* Form */
         .vch-section-label { font-size: 11px; font-family: var(--font-mono); color: var(--meta); text-transform: uppercase; letter-spacing: 0.8px; margin: 16px 0 8px; padding-top: 12px; border-top: 1px solid var(--border); }
         .vch-section-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
@@ -448,7 +411,6 @@ export default function VideoCharactersPage() {
         }
         .vch-radio input { display: none; }
         .vch-radio.active { border-color: var(--accent); color: var(--accent); background: rgba(62,207,142,0.08); }
-
         /* Responsive */
         @media (max-width: 1023px) {
           .vch-header { padding: 16px 20px; }
@@ -466,5 +428,13 @@ export default function VideoCharactersPage() {
         }
       `}</style>
     </>
+  );
+}
+
+export default function VideoCharactersPage() {
+  return (
+    <Suspense fallback={<div className="loading-spinner" />}>
+      <VideoCharactersPageInner />
+    </Suspense>
   );
 }

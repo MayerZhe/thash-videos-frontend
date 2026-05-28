@@ -1,30 +1,25 @@
-export const dynamic = 'force-dynamic';
 'use client';
-
+export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { videoExportsApi } from '@/lib/api';
 import type { VideoExport } from '@/lib/types';
-
 /* ═══════════════════════════════════════════════════════════════════════
  * /short-video/export — Visual Factory export management
  * 1:1 replica of Thash-video-design/video-export.html
  * Phase 3: Replaced seed data with videoExportsApi calls.
  * ═══════════════════════════════════════════════════════════════════════ */
-
 type ExportFormat = 'mp4' | 'mov' | 'webm';
 type Resolution = '720p' | '1080p' | '4k';
-
 const FORMAT_LABELS: Record<ExportFormat, string> = { mp4: 'MP4（推荐）', mov: 'MOV', webm: 'WebM' };
 const RES_LABELS: Record<Resolution, string> = { '720p': '720p HD', '1080p': '1080p Full HD', '4k': '4K Ultra HD' };
-
 const STATUS_LABELS: Record<string, string> = {
   pending: '等待中',
   processing: '处理中',
   completed: '已完成',
   failed: '失败',
 };
-
 function IconDownload() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 13h10M8 3v8M5 8l3 3 3-3"/></svg>;
 }
@@ -40,13 +35,10 @@ function IconVideo() {
 function IconDelete() {
   return <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>;
 }
-
 let toastIdCounter = 0;
-
-export default function VideoExportPage() {
+function VideoExportPageInner() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || '';
-
   const [format, setFormat] = useState<ExportFormat>('mp4');
   const [resolution, setResolution] = useState<Resolution>('1080p');
   const [exporting, setExporting] = useState(false);
@@ -56,13 +48,11 @@ export default function VideoExportPage() {
   const [estimate, setEstimate] = useState<number | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
-
   const toast = (msg: string) => {
     const id = ++toastIdCounter;
     setToasts((prev) => [...prev, { id, msg }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
   };
-
   /* ─── Load export history ─────────────────────────────────────────── */
   const loadHistory = useCallback(async () => {
     if (!projectId) { setLoading(false); setHistory([]); return; }
@@ -77,9 +67,7 @@ export default function VideoExportPage() {
       setLoading(false);
     }
   }, [projectId]);
-
   useEffect(() => { loadHistory(); }, [loadHistory]);
-
   /* ─── Load cost estimate ──────────────────────────────────────────── */
   const loadEstimate = useCallback(async () => {
     if (!projectId) return;
@@ -93,9 +81,7 @@ export default function VideoExportPage() {
       setEstimateLoading(false);
     }
   }, [projectId, resolution, format]);
-
   useEffect(() => { loadEstimate(); }, [loadEstimate]);
-
   /* ─── Handle export ────────────────────────────────────────────────── */
   const handleExport = useCallback(async () => {
     if (!projectId) { toast('请先选择项目'); return; }
@@ -110,7 +96,6 @@ export default function VideoExportPage() {
       setExporting(false);
     }
   }, [projectId, format, resolution]);
-
   const handleDelete = useCallback(async (exportId: string) => {
     if (!projectId) return;
     try {
@@ -121,9 +106,7 @@ export default function VideoExportPage() {
       toast(`删除失败: ${(err as Error).message}`);
     }
   }, [projectId]);
-
   const estimatedCostYuan = estimate != null ? (estimate / 100).toFixed(2) : '--';
-
   return (
     <>
       <div className="vex-page">
@@ -137,7 +120,6 @@ export default function VideoExportPage() {
             返回工坊
           </a>
         </div>
-
         {!projectId ? (
           <div style={{ padding: '60px 20px', textAlign: 'center' }}>
             <p className="vex-empty" style={{ color: 'var(--muted)' }}>请从短视频项目页面进入导出管理。</p>
@@ -160,7 +142,6 @@ export default function VideoExportPage() {
                   </div>
                 </div>
               </div>
-
               {/* Config */}
               <div className="vex-config-section">
                 {/* Format */}
@@ -176,7 +157,6 @@ export default function VideoExportPage() {
                     ))}
                   </div>
                 </div>
-
                 {/* Resolution */}
                 <div className="vex-config-group">
                   <div className="vex-config-label">分辨率</div>
@@ -186,7 +166,6 @@ export default function VideoExportPage() {
                     ))}
                   </select>
                 </div>
-
                 {/* Cost estimate */}
                 <div className="vex-cost-preview">
                   <div className="vex-cost-row">
@@ -194,7 +173,6 @@ export default function VideoExportPage() {
                     <span className="vex-cost-value">{estimateLoading ? '计算中...' : `¥${estimatedCostYuan}`}</span>
                   </div>
                 </div>
-
                 {/* Export button */}
                 {exporting ? (
                   <div className="vex-progress-wrap">
@@ -212,7 +190,6 @@ export default function VideoExportPage() {
             </div>
           </>
         )}
-
         {/* Export history */}
         {projectId && (
           <div className="vex-section">
@@ -258,7 +235,6 @@ export default function VideoExportPage() {
           </div>
         )}
       </div>
-
       {/* Toasts */}
       {toasts.length > 0 && (
         <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -267,10 +243,8 @@ export default function VideoExportPage() {
           ))}
         </div>
       )}
-
       <style jsx>{`
         .vex-page { color: var(--fg); padding-bottom: 40px; }
-
         .vex-header {
           display: flex; align-items: center; justify-content: space-between;
           padding: 20px 28px; border-bottom: 1px solid var(--border);
@@ -278,10 +252,8 @@ export default function VideoExportPage() {
         }
         .vex-title { font-size: var(--text-xl); font-weight: 500; margin: 0; font-family: var(--font-display); }
         .vex-sub { font-size: 13px; color: var(--muted); margin: 2px 0 0 0; }
-
         /* Body */
         .vex-body { display: flex; gap: 28px; padding: 24px 28px; align-items: flex-start; }
-
         /* Preview */
         .vex-preview-section { flex-shrink: 0; }
         .vex-preview-label { font-size: 11px; font-family: var(--font-mono); color: var(--meta); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
@@ -299,7 +271,6 @@ export default function VideoExportPage() {
           display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
         .vex-preview-dims { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
-
         /* Config */
         .vex-config-section { flex: 1; min-width: 0; }
         .vex-config-group { margin-bottom: 18px; }
@@ -324,7 +295,6 @@ export default function VideoExportPage() {
           box-sizing: border-box; transition: border-color 0.15s;
         }
         .vex-form-select:focus { border-color: var(--accent); }
-
         /* Cost preview */
         .vex-cost-preview {
           background: var(--border-soft); border: 1px solid var(--border);
@@ -333,22 +303,18 @@ export default function VideoExportPage() {
         .vex-cost-row { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
         .vex-cost-row:first-child { color: var(--muted); }
         .vex-cost-value { font-weight: 500; color: var(--accent); }
-
         .vex-export-btn { width: 100%; justify-content: center; gap: 8px; }
-
         /* Progress */
         .vex-progress-wrap { display: flex; flex-direction: column; gap: 8px; }
         .vex-progress-bar { height: 6px; border-radius: 3px; background: var(--border-soft); overflow: hidden; }
         .vex-progress-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s; }
         .vex-progress-text { font-size: 12px; color: var(--muted); }
-
         /* Sections */
         .vex-section { margin: 0 28px 24px; padding-top: 20px; border-top: 1px solid var(--border); }
         .vex-section-title {
           font-size: 11px; font-family: var(--font-mono); color: var(--meta);
           text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
         }
-
         /* History */
         .vex-history-list { display: flex; flex-direction: column; gap: 6px; }
         .vex-history-item {
@@ -370,9 +336,7 @@ export default function VideoExportPage() {
           display: flex; align-items: center; justify-content: center; transition: all 0.15s;
         }
         .vex-icon-btn:hover { background: var(--border-soft); color: var(--fg); }
-
         .vex-empty { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
-
         /* Responsive */
         @media (max-width: 1023px) {
           .vex-body { flex-direction: column; align-items: center; padding: 20px; }
@@ -389,5 +353,13 @@ export default function VideoExportPage() {
         }
       `}</style>
     </>
+  );
+}
+
+export default function VideoExportPage() {
+  return (
+    <Suspense fallback={<div className="loading-spinner" />}>
+      <VideoExportPageInner />
+    </Suspense>
   );
 }

@@ -1,25 +1,20 @@
-export const dynamic = 'force-dynamic';
 'use client';
-
+export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { videoScenesApi } from '@/lib/api';
 import type { VideoScene } from '@/lib/types';
-
 /* ═══════════════════════════════════════════════════════════════════════
  * /short-video/storyboard — Visual Factory storyboard editor
  * 1:1 replica of Thash-video-design/video-storyboard.html
  * Phase 3: Replaced seed data with videoScenesApi calls.
  * ═══════════════════════════════════════════════════════════════════════ */
-
 type ShotType = '全景' | '中景' | '近景' | '特写';
 type SceneType = '口播' | '产品展示' | '剧情' | '结尾';
-
 const SHOT_TYPE_OPTIONS: ShotType[] = ['全景', '中景', '近景', '特写'];
 const TYPE_OPTIONS: SceneType[] = ['口播', '产品展示', '剧情', '结尾'];
-
 let toastIdCounter = 0;
-
 function statusLabel(status: string): string {
   const map: Record<string, string> = { pending: '待生成', generating: '生成中', done: '已完成', draft: '草稿' };
   return map[status] || status;
@@ -29,9 +24,7 @@ function statusColor(status: string): string {
   if (status === 'generating') return 'var(--warn)';
   return 'var(--muted)';
 }
-
 /* ─── Icons ─────────────────────────────────────────────────────────── */
-
 function IconPlus() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M3 8h10" strokeLinecap="round"/></svg>;
 }
@@ -50,9 +43,7 @@ function IconSearch() {
 function IconGrid() {
   return <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>;
 }
-
 /* ─── Local view ────────────────────────────────────────────────────── */
-
 interface SceneView {
   id: string;
   project_id: string;
@@ -66,7 +57,6 @@ interface SceneView {
   _type: SceneType;
   _status: string;
 }
-
 function toView(s: VideoScene): SceneView {
   // Infer type from shot_type or default
   let _type: SceneType = '口播';
@@ -78,7 +68,6 @@ function toView(s: VideoScene): SceneView {
     else if (lower.includes('口播') || lower.includes('host')) _type = '口播';
     else _type = '口播';
   }
-
   return {
     id: s.id,
     project_id: s.project_id,
@@ -92,13 +81,10 @@ function toView(s: VideoScene): SceneView {
     _status: 'draft',
   };
 }
-
 /* ─── Page Component ────────────────────────────────────────────────── */
-
-export default function VideoStoryboardPage() {
+function VideoStoryboardPageInner() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || '';
-
   const [scenes, setScenes] = useState<SceneView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,13 +95,11 @@ export default function VideoStoryboardPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
-
   const toast = (msg: string) => {
     const id = ++toastIdCounter;
     setToasts((prev) => [...prev, { id, msg }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
   };
-
   /* ─── Load scenes ────────────────────────────────────────────────── */
   const loadScenes = useCallback(async () => {
     if (!projectId) { setLoading(false); setScenes([]); return; }
@@ -130,9 +114,7 @@ export default function VideoStoryboardPage() {
       setLoading(false);
     }
   }, [projectId]);
-
   useEffect(() => { loadScenes(); }, [loadScenes]);
-
   const filteredScenes = useMemo(() => {
     return scenes.filter((s) => {
       const matchesType = activeType === 'all' || s._type === activeType;
@@ -140,24 +122,19 @@ export default function VideoStoryboardPage() {
       return matchesType && matchesSearch;
     });
   }, [scenes, activeType, searchQuery]);
-
   const activeShot = useMemo(() => scenes.find((s) => s.id === activeShotId), [scenes, activeShotId]);
-
   const openDrawer = useCallback((id: string) => {
     setActiveShotId(id);
     setDrawerOpen(true);
   }, []);
-
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
     setActiveShotId(null);
   }, []);
-
   const showSaved = useCallback(() => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }, []);
-
   /* ─── Inline update field ─────────────────────────────────────────── */
   const updateScene = useCallback((field: string, value: unknown) => {
     if (!activeShotId) return;
@@ -166,7 +143,6 @@ export default function VideoStoryboardPage() {
     ));
     showSaved();
   }, [activeShotId, showSaved]);
-
   /* ─── Save to API ─────────────────────────────────────────────────── */
   const handleSave = useCallback(async () => {
     if (!projectId || !activeShot) return;
@@ -186,7 +162,6 @@ export default function VideoStoryboardPage() {
       setSaving(false);
     }
   }, [projectId, activeShot]);
-
   /* ─── Add scene ───────────────────────────────────────────────────── */
   const handleAddScene = useCallback(async () => {
     if (!projectId) { toast('请先选择项目'); return; }
@@ -205,7 +180,6 @@ export default function VideoStoryboardPage() {
       toast(`创建失败: ${(err as Error).message}`);
     }
   }, [projectId, scenes.length, openDrawer]);
-
   /* ─── Delete scene ────────────────────────────────────────────────── */
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -222,7 +196,6 @@ export default function VideoStoryboardPage() {
       toast(`删除失败: ${(err as Error).message}`);
     }
   }, [projectId, activeShotId, closeDrawer]);
-
   /* ─── Reorder (simplified: update scene_number) ──────────────────── */
   const handleMoveUp = useCallback(async (id: string) => {
     const idx = scenes.findIndex((s) => s.id === id);
@@ -237,7 +210,6 @@ export default function VideoStoryboardPage() {
       toast('排序失败');
     }
   }, [scenes, projectId]);
-
   const handleMoveDown = useCallback(async (id: string) => {
     const idx = scenes.findIndex((s) => s.id === id);
     if (idx < 0 || idx >= scenes.length - 1 || !projectId) return;
@@ -251,7 +223,6 @@ export default function VideoStoryboardPage() {
       toast('排序失败');
     }
   }, [scenes, projectId]);
-
   return (
     <>
       <div className="vsb-page">
@@ -268,7 +239,6 @@ export default function VideoStoryboardPage() {
             </a>
           </div>
         </div>
-
         {/* No projectId */}
         {!projectId && !loading ? (
           <div className="vsb-empty">
@@ -293,7 +263,6 @@ export default function VideoStoryboardPage() {
                 ))}
               </div>
             </div>
-
             {/* Content: loading / error / empty / grid */}
             {loading ? (
               <div className="vsb-empty">
@@ -333,7 +302,6 @@ export default function VideoStoryboardPage() {
                     </button>
                   </div>
                 ))}
-
                 {/* Add card */}
                 <button className="vsb-add-card" onClick={handleAddScene}>
                   <IconPlus />
@@ -358,7 +326,6 @@ export default function VideoStoryboardPage() {
             )}
           </>
         )}
-
         {/* Toasts */}
         {toasts.length > 0 && (
           <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -368,7 +335,6 @@ export default function VideoStoryboardPage() {
           </div>
         )}
       </div>
-
       {/* Drawer overlay */}
       {drawerOpen && activeShot && (
         <div className="vsb-drawer-overlay" onClick={closeDrawer}>
@@ -381,7 +347,6 @@ export default function VideoStoryboardPage() {
               </div>
               <button className="vsb-icon-btn" onClick={closeDrawer}><IconClose /></button>
             </div>
-
             <div className="vsb-drawer-body">
               {/* Basic info */}
               <div className="vsb-drawer-section">
@@ -410,7 +375,6 @@ export default function VideoStoryboardPage() {
                   </div>
                 </div>
               </div>
-
               {/* Shot type */}
               <div className="vsb-drawer-section">
                 <div className="vsb-drawer-section-label">镜头设置</div>
@@ -421,7 +385,6 @@ export default function VideoStoryboardPage() {
                   </select>
                 </div>
               </div>
-
               {/* Description */}
               <div className="vsb-drawer-section">
                 <div className="vsb-drawer-section-label">描述说明</div>
@@ -429,7 +392,6 @@ export default function VideoStoryboardPage() {
                   onChange={(e) => updateScene('description', e.target.value)}
                   placeholder="详细描述此分镜的视觉内容、对话、音效等..." />
               </div>
-
               {/* Actions */}
               <div className="vsb-drawer-footer">
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>分镜 #{activeShot.scene_number}</span>
@@ -444,10 +406,8 @@ export default function VideoStoryboardPage() {
           </div>
         </div>
       )}
-
       <style jsx>{`
         .vsb-page { color: var(--fg); }
-
         .vsb-header {
           display: flex; align-items: center; justify-content: space-between;
           padding: 16px 28px; border-bottom: 1px solid var(--border);
@@ -460,7 +420,6 @@ export default function VideoStoryboardPage() {
           color: var(--accent); padding: 4px 10px; border-radius: 4px;
           background: rgba(62,207,142,0.08); border: 1px solid rgba(62,207,142,0.2);
         }
-
         /* Filter */
         .vsb-filter-bar { display: flex; gap: 12px; padding: 14px 28px; align-items: center; border-bottom: 1px solid var(--border); }
         .vsb-search-wrap {
@@ -478,10 +437,8 @@ export default function VideoStoryboardPage() {
         }
         .vsb-pill:hover { border-color: #363636; color: var(--fg); }
         .vsb-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(62,207,142,0.08); }
-
         /* Grid */
         .vsb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding: 20px 28px; }
-
         /* Card */
         .vsb-card {
           background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -521,7 +478,6 @@ export default function VideoStoryboardPage() {
           display: flex; align-items: center; justify-content: center; padding: 0;
           font-size: 10px; font-family: var(--font-mono);
         }
-
         /* Add card */
         .vsb-add-card {
           background: transparent; border: 1px dashed var(--border); border-radius: 10px;
@@ -530,7 +486,6 @@ export default function VideoStoryboardPage() {
           font-size: 13px; font-family: var(--font-body); transition: all 0.15s;
         }
         .vsb-add-card:hover { border-color: var(--accent); color: var(--accent); background: rgba(62,207,142,0.04); }
-
         /* Empty */
         .vsb-empty {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -542,7 +497,6 @@ export default function VideoStoryboardPage() {
         }
         .vsb-empty-title { font-size: 16px; font-weight: 500; color: var(--fg); margin: 0 0 8px; }
         .vsb-empty-desc { font-size: 13px; color: var(--muted); line-height: 1.6; max-width: 300px; margin-bottom: 20px; }
-
         /* Drawer overlay */
         .vsb-drawer-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.5);
@@ -567,7 +521,6 @@ export default function VideoStoryboardPage() {
           display: flex; align-items: center; justify-content: center; transition: all 0.15s;
         }
         .vsb-icon-btn:hover { background: var(--border-soft); color: var(--fg); }
-
         /* Drawer body */
         .vsb-drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
         .vsb-drawer-section { margin-bottom: 20px; }
@@ -592,13 +545,11 @@ export default function VideoStoryboardPage() {
           color: var(--fg); font-family: var(--font-body); outline: none; resize: vertical; box-sizing: border-box;
         }
         .vsb-drawer-textarea:focus { border-color: var(--accent); }
-
         /* Drawer footer */
         .vsb-drawer-footer {
           padding: 14px 20px; border-top: 1px solid var(--border);
           display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
         }
-
         /* Responsive */
         @media (max-width: 1023px) {
           .vsb-header { padding: 14px 20px; }
@@ -616,5 +567,13 @@ export default function VideoStoryboardPage() {
         }
       `}</style>
     </>
+  );
+}
+
+export default function VideoStoryboardPage() {
+  return (
+    <Suspense fallback={<div className="loading-spinner" />}>
+      <VideoStoryboardPageInner />
+    </Suspense>
   );
 }

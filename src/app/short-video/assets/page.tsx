@@ -1,43 +1,35 @@
-export const dynamic = 'force-dynamic';
 'use client';
-
+export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { videoAssetsApi } from '@/lib/api';
 import type { VideoAsset } from '@/lib/types';
-
 /* ═══════════════════════════════════════════════════════════════════════
  * /short-video/assets — Visual Factory asset library
  * 1:1 replica of Thash-video-design/video-assets.html
  * Phase 3: Replaced seed data with videoAssetsApi calls.
  * ═══════════════════════════════════════════════════════════════════════ */
-
 type FilterType = 'all' | 'video' | 'image' | 'audio';
-
 const TYPE_ICONS: Record<string, string> = {
   video: 'V',
   image: 'I',
   audio: 'A',
   other: 'O',
 };
-
 function formatSize(bytes: number): string {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / 1048576).toFixed(1)}MB`;
 }
-
 function formatDuration(sec: number): string {
   if (!sec || sec <= 0) return '';
   if (sec < 60) return `${sec}s`;
   return `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, '0')}`;
 }
-
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
-
 let toastIdCounter = 0;
-
 function IconSearch() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5l3 3" strokeLinecap="round"/></svg>;
 }
@@ -59,13 +51,10 @@ function IconFolder() {
 function IconLink() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10 13a5 5 0 100-10M6 3a5 5 0 100 10"/></svg>;
 }
-
 /* ─── Page Component ────────────────────────────────────────────────────── */
-
-export default function VideoAssetsPage() {
+function VideoAssetsPageInner() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || '';
-
   const [assets, setAssets] = useState<VideoAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +65,11 @@ export default function VideoAssetsPage() {
   const [importUrl, setImportUrl] = useState('');
   const [importing, setImporting] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
-
   const toast = (msg: string) => {
     const id = ++toastIdCounter;
     setToasts((prev) => [...prev, { id, msg }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
   };
-
   /* ─── Load assets ──────────────────────────────────────────────────── */
   const loadAssets = useCallback(async () => {
     if (!projectId) {
@@ -101,16 +88,13 @@ export default function VideoAssetsPage() {
       setLoading(false);
     }
   }, [projectId, activeType, searchQuery]);
-
   useEffect(() => { loadAssets(); }, [loadAssets]);
-
   const filtered = useMemo(() => {
     let result = assets;
     if (activeType !== 'all') result = result.filter((a) => a.type === activeType);
     if (searchQuery) result = result.filter((a) => a.name.toLowerCase().includes(searchQuery.toLowerCase()));
     return result;
   }, [assets, activeType, searchQuery]);
-
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -118,7 +102,6 @@ export default function VideoAssetsPage() {
       return next;
     });
   }, []);
-
   const handleDelete = useCallback(async (id: string) => {
     if (!projectId) return;
     try {
@@ -130,7 +113,6 @@ export default function VideoAssetsPage() {
       toast(`删除失败: ${(err as Error).message}`);
     }
   }, [projectId]);
-
   const handleBatchDelete = useCallback(async () => {
     if (!projectId || selectedIds.size === 0) return;
     try {
@@ -142,7 +124,6 @@ export default function VideoAssetsPage() {
       toast(`批量删除失败: ${(err as Error).message}`);
     }
   }, [projectId, selectedIds]);
-
   const handleImportUrl = useCallback(async () => {
     const url = importUrl.trim();
     if (!url || !projectId) return;
@@ -160,14 +141,12 @@ export default function VideoAssetsPage() {
       setImporting(false);
     }
   }, [importUrl, projectId]);
-
   const filterPills: { key: FilterType; label: string }[] = [
     { key: 'all', label: '全部' },
     { key: 'image', label: '图片' },
     { key: 'video', label: '视频' },
     { key: 'audio', label: '音频' },
   ];
-
   return (
     <>
       <div className="vas-page">
@@ -190,7 +169,6 @@ export default function VideoAssetsPage() {
             </label>
           </div>
         </div>
-
         {/* Filter bar */}
         <div className="vas-filter-bar">
           <div className="vas-search-wrap">
@@ -206,7 +184,6 @@ export default function VideoAssetsPage() {
             ))}
           </div>
         </div>
-
         {/* No projectId warning */}
         {!projectId && !loading && (
           <div className="vas-empty">
@@ -215,7 +192,6 @@ export default function VideoAssetsPage() {
             <p className="vas-empty-desc">请从短视频项目页面进入素材库。</p>
           </div>
         )}
-
         {/* Content: loading / error / empty / grid */}
         {projectId && (
           <>
@@ -277,7 +253,6 @@ export default function VideoAssetsPage() {
             )}
           </>
         )}
-
         {/* Batch action bar */}
         {selectedIds.size > 0 && (
           <div className="vas-batch-bar">
@@ -293,7 +268,6 @@ export default function VideoAssetsPage() {
           </div>
         )}
       </div>
-
       {/* Import URL modal */}
       {urlInputOpen && (
         <div className="vas-overlay" onClick={(e) => { if (e.target === e.currentTarget) setUrlInputOpen(false); }}>
@@ -316,10 +290,8 @@ export default function VideoAssetsPage() {
           </div>
         </div>
       )}
-
       <style jsx>{`
         .vas-page { color: var(--fg); }
-
         .vas-header {
           display: flex; align-items: center; justify-content: space-between;
           padding: 20px 28px; border-bottom: 1px solid var(--border);
@@ -327,7 +299,6 @@ export default function VideoAssetsPage() {
         }
         .vas-title { font-size: var(--text-xl); font-weight: 500; margin: 0; font-family: var(--font-display); }
         .vas-sub { font-size: 13px; color: var(--muted); margin: 2px 0 0 0; }
-
         /* Filter */
         .vas-filter-bar {
           display: flex; gap: 12px; padding: 14px 28px; align-items: center;
@@ -351,13 +322,11 @@ export default function VideoAssetsPage() {
         }
         .vas-pill:hover { border-color: #363636; color: var(--fg); }
         .vas-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(62,207,142,0.08); }
-
         /* Grid */
         .vas-grid {
           display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
           gap: 12px; padding: 16px 28px 80px;
         }
-
         /* Card */
         .vas-card {
           background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -395,7 +364,6 @@ export default function VideoAssetsPage() {
           cursor: pointer; display: none; align-items: center; justify-content: center; padding: 0;
         }
         .vas-card:hover .vas-card-delete { display: flex; }
-
         /* Batch bar */
         .vas-batch-bar {
           position: fixed; bottom: 0; left: 0; right: 0;
@@ -403,7 +371,6 @@ export default function VideoAssetsPage() {
           padding: 12px 28px; display: flex; align-items: center;
           justify-content: space-between; font-size: 13px; color: var(--fg); z-index: 50;
         }
-
         /* Empty */
         .vas-empty {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -415,7 +382,6 @@ export default function VideoAssetsPage() {
         }
         .vas-empty-title { font-size: 16px; font-weight: 500; color: var(--fg); margin: 0 0 8px; }
         .vas-empty-desc { font-size: 13px; color: var(--muted); line-height: 1.6; max-width: 340px; margin-bottom: 20px; }
-
         /* Modal */
         .vas-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
         .vas-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 420px; max-width: calc(100vw - 32px); animation: vasScaleIn 0.15s ease; }
@@ -438,7 +404,6 @@ export default function VideoAssetsPage() {
           display: flex; align-items: center; justify-content: center; transition: all 0.15s;
         }
         .vas-icon-btn:hover { background: var(--border-soft); color: var(--fg); }
-
         /* Responsive */
         @media (max-width: 1023px) {
           .vas-header { padding: 16px 20px; }
@@ -456,5 +421,13 @@ export default function VideoAssetsPage() {
         }
       `}</style>
     </>
+  );
+}
+
+export default function VideoAssetsPage() {
+  return (
+    <Suspense fallback={<div className="loading-spinner" />}>
+      <VideoAssetsPageInner />
+    </Suspense>
   );
 }
