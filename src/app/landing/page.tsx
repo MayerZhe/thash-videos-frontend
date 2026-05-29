@@ -110,8 +110,8 @@ export default function LandingPage() {
           </Link>
           <div className="nav-links">
             <Link href="/landing#features">功能</Link>
-            <a href="/dashboard" onClick={handleProtectedNav('/dashboard')}>短剧工厂</a>
-            <a href="/short-video/projects" onClick={handleProtectedNav('/short-video/projects')}>视觉工厂</a>
+            <Link href="/dashboard">短剧工厂</Link>
+            <Link href="/short-video/projects">视觉工厂</Link>
           </div>
           <div className="nav-right">
             {!authChecked ? (
@@ -165,8 +165,8 @@ export default function LandingPage() {
             </>
           ) : (
             <>
-              <a href="/dashboard" onClick={(e) => { handleProtectedNav('/dashboard')(e); setMobileMenuOpen(false); }}>短剧工厂</a>
-              <a href="/short-video/projects" onClick={(e) => { handleProtectedNav('/short-video/projects')(e); setMobileMenuOpen(false); }}>视觉工厂</a>
+              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>短剧工厂</Link>
+              <Link href="/short-video/projects" onClick={() => setMobileMenuOpen(false)}>视觉工厂</Link>
               <Link href="/login" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-2)' }}>登录</Link>
               <Link href="/register" className="btn btn-brand btn-sm">免费注册</Link>
             </>
@@ -187,12 +187,12 @@ export default function LandingPage() {
             顶级视频引擎，不绑定单一供应商。
           </p>
           <div className="hero-actions">
-            <a href="/dashboard" className="btn btn-brand" onClick={handleProtectedNav('/dashboard')}>
+            <Link href="/dashboard" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M13 6l6 6-6 6" />
               </svg>
-            </a>
+            </Link>
             <Link href="/landing#features" className="btn btn-secondary">了解功能</Link>
             {!useAuthStore.getState().isAuthenticated() && (
               <Link href="/login" style={{ fontSize: 'var(--text-sm)', color: 'var(--muted)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
@@ -258,12 +258,12 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="section-cta">
-            <a href="/dashboard" className="btn btn-brand" onClick={handleProtectedNav('/dashboard')}>
+            <Link href="/dashboard" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}>
                 <path d="M5 12h14 M12 5l7 7-7 7" />
               </svg>
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -285,12 +285,12 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="section-cta">
-            <a href="/short-video/projects" className="btn btn-brand" onClick={handleProtectedNav('/short-video/projects')}>
+            <Link href="/short-video/projects" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入视觉工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}>
                 <path d="M5 12h14 M12 5l7 7-7 7" />
               </svg>
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -304,12 +304,12 @@ export default function LandingPage() {
             基于 ArcReel 构建，AGPL-3.0 开源。Docker 一键部署，五分钟启动属于你自己的短剧生产线。
           </p>
           <div className="cta-actions">
-            <a href="/dashboard" className="btn btn-brand" onClick={handleProtectedNav('/dashboard')}>
+            <Link href="/dashboard" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
-            </a>
-            <a href="/short-video/projects" className="btn btn-brand" onClick={handleProtectedNav('/short-video/projects')}>
+            </Link>
+            <Link href="/short-video/projects" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入视觉工厂'}
-            </a>
+            </Link>
             <a href="https://github.com" className="btn btn-secondary">GitHub</a>
           </div>
         </div>

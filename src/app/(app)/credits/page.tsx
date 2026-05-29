@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { creditsApi, ApiError } from '@/lib/api';
 import type { CreditBalance, CreditTransaction, CreditPackage } from '@/lib/types';
@@ -40,17 +40,23 @@ export default function CreditsPage() {
   const [loadingPkgs, setLoadingPkgs] = useState(true);
   const [selectedPkg, setSelectedPkg] = useState<CreditPackage | null>(null);
   const [txPage, setTxPage] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const PAGE_SIZE = 10;
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setError(null);
+    setLoadingBalance(true);
+    setLoadingTx(true);
+    setLoadingPkgs(true);
+
     creditsApi.getBalance()
       .then(setBalance)
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : '加载失败，请稍后重试'))
       .finally(() => setLoadingBalance(false));
 
     creditsApi.getPackages()
       .then(setPackages)
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : '加载失败，请稍后重试'))
       .finally(() => setLoadingPkgs(false));
 
     creditsApi.getTransactions({ limit: PAGE_SIZE })
@@ -58,9 +64,13 @@ export default function CreditsPage() {
         setTransactions(res.transactions);
         setTotalTx(res.total);
       })
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : '加载失败，请稍后重试'))
       .finally(() => setLoadingTx(false));
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function loadMoreTx() {
     const nextPage = txPage + 1;
@@ -73,6 +83,12 @@ export default function CreditsPage() {
     return (
       <div className="st-content">
         <p className="eyebrow">// Credits · 账户余额</p>
+        {error && (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--danger)', fontSize: 'var(--text-sm)' }}>{error}</span>
+            <button className="btn btn-ghost btn-sm" onClick={loadData} style={{ color: 'var(--danger)' }}>重试</button>
+          </div>
+        )}
         <div className="balance-skeleton">
           <div className="skeleton" style={{ width: 200, height: 60, borderRadius: 'var(--radius-lg)' }} />
           <div className="skeleton" style={{ width: 120, height: 24, borderRadius: 'var(--radius-pill)' }} />
@@ -86,6 +102,13 @@ export default function CreditsPage() {
     <div className="st-content">
       <p className="eyebrow">// Credits · 账户余额</p>
       <h2>Credits 管理</h2>
+
+      {error && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: 'var(--danger)', fontSize: 'var(--text-sm)' }}>{error}</span>
+          <button className="btn btn-ghost btn-sm" onClick={loadData} style={{ color: 'var(--danger)' }}>重试</button>
+        </div>
+      )}
 
       {/* Balance Card */}
       <div className="balance-section">

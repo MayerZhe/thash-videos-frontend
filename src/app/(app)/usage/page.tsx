@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { usageApi } from '@/lib/api';
 import type { UsageSummary, UsageRecord } from '@/lib/types';
 
@@ -36,28 +36,45 @@ export default function UsagePage() {
   const [loadingRecords, setLoadingRecords] = useState(true);
   const [page, setPage] = useState(0);
   const [filterSupplier, setFilterSupplier] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const PAGE_SIZE = 20;
 
-  useEffect(() => {
+  const loadSummary = useCallback(() => {
+    setError(null);
+    setLoadingSummary(true);
     usageApi.getSummary()
       .then(setSummary)
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : '加载失败，请稍后重试'))
       .finally(() => setLoadingSummary(false));
   }, []);
 
-  useEffect(() => {
+  const loadRecords = useCallback((supplier: string = filterSupplier) => {
     setLoadingRecords(true);
+    setError(null);
     const params: Record<string, string | number> = { limit: PAGE_SIZE };
-    if (filterSupplier) params.supplier = filterSupplier;
+    if (supplier) params.supplier = supplier;
     usageApi.getRecords(params)
       .then((res) => {
         setRecords(res.records);
         setTotal(res.total);
         setPage(0);
       })
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : '加载失败，请稍后重试'))
       .finally(() => setLoadingRecords(false));
-  }, [filterSupplier]);
+  }, []);
+
+  const loadData = useCallback(() => {
+    loadSummary();
+    loadRecords();
+  }, [loadSummary, loadRecords]);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    loadRecords();
+  }, [filterSupplier, loadRecords]);
 
   async function loadMore() {
     const nextPage = page + 1;
@@ -76,6 +93,13 @@ export default function UsagePage() {
     <div className="st-content">
       <p className="eyebrow">// 用量统计</p>
       <h2>用量仪表盘</h2>
+
+      {error && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: 'var(--danger)', fontSize: 'var(--text-sm)' }}>{error}</span>
+          <button className="btn btn-ghost btn-sm" onClick={loadData} style={{ color: 'var(--danger)' }}>重试</button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="usage-cards">

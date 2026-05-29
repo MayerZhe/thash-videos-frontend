@@ -176,7 +176,7 @@ export default function PublishingPage() {
                       {item.progress_percent > 0 && item.progress_percent < 100 && ` · ${item.progress_percent}%`}
                     </p>
                   </div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { publishingApi.cancelPublish(item.id).catch(() => {}); toast('已取消发布任务'); loadData(); }}>取消</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { publishingApi.cancelPublish(item.id).then(() => { toast('已取消发布任务'); loadData(); }).catch((err: unknown) => { toast('取消失败: ' + (err instanceof Error ? err.message : '未知错误')); }); }}>取消</button>
                 </div>
               );
             })

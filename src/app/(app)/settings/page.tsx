@@ -55,6 +55,19 @@ export default function SettingsPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
 
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<Array<{ id: string; name: string; created_at: string }>>([]);
+  const [apiKeysLoading, setApiKeysLoading] = useState(false);
+  const [apiKeysError, setApiKeysError] = useState<string | null>(null);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [showNewKeyInput, setShowNewKeyInput] = useState(false);
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
+
+  // Suppliers state
+  const [suppliers, setSuppliers] = useState<Array<{ id?: string; type: string; name: string; priority: number; enabled: boolean }>>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const [suppliersError, setSuppliersError] = useState<string | null>(null);
+
   const loadProfile = useCallback(async () => {
     setProfileLoading(true);
     setProfileError(null);
@@ -102,6 +115,34 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const loadApiKeys = useCallback(async () => {
+    setApiKeysLoading(true);
+    setApiKeysError(null);
+    try {
+      const data = await settingsApi.getApiKeys();
+      setApiKeys(data || []);
+    } catch (err) {
+      setApiKeysError((err as Error).message);
+    } finally {
+      setApiKeysLoading(false);
+    }
+  }, []);
+
+  const loadSuppliers = useCallback(async () => {
+    setSuppliersLoading(true);
+    setSuppliersError(null);
+    try {
+      const data = await settingsApi.getSuppliers();
+      // support both array and { suppliers: [...] } shapes
+      const list = Array.isArray(data) ? data : (data as Record<string, unknown>).suppliers as Array<Record<string, unknown>> || [];
+      setSuppliers(list as Array<{ id?: string; type: string; name: string; priority: number; enabled: boolean }>);
+    } catch (err) {
+      setSuppliersError((err as Error).message);
+    } finally {
+      setSuppliersLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'team' && team.length === 0 && !teamLoading && !teamError) {
       loadTeam();
@@ -112,8 +153,16 @@ export default function SettingsPage() {
     if (activeTab === 'profile' && !profileUser && !profileLoading && !profileError) {
       loadProfile();
     }
+    if (activeTab === 'api-keys' && apiKeys.length === 0 && !apiKeysLoading && !apiKeysError) {
+      loadApiKeys();
+    }
+    if (activeTab === 'suppliers' && suppliers.length === 0 && !suppliersLoading && !suppliersError) {
+      loadSuppliers();
+    }
   }, [activeTab, team, teamLoading, teamError, billing, billingLoading, billingError,
-      profileUser, profileLoading, profileError, loadTeam, loadBilling, loadProfile]);
+      profileUser, profileLoading, profileError, apiKeys, apiKeysLoading, apiKeysError,
+      suppliers, suppliersLoading, suppliersError, loadTeam, loadBilling, loadProfile,
+      loadApiKeys, loadSuppliers]);
 
   const handleSaveProfile = async () => {
     setProfileSaving(true);
@@ -311,40 +360,92 @@ export default function SettingsPage() {
           {activeTab === 'api-keys' && (
             <div className="settings-section">
               <h3>API 密钥</h3>
-              <div className="stack-4">
-                <div className="card">
-                  <div className="row-between">
-                    <span style={{ color: 'var(--fg)' }}>即梦 API Key</span>
-                    <span className="badge badge-success">已配置</span>
-                  </div>
-                  <div className="api-key-row">
-                    <input type="text" value={showApiKey ? 'jm_sk_full_key_a1b2' : 'jm_sk_••••••••••••••••••••a1b2'} readOnly />
-                    <button className="btn btn-ghost btn-sm" onClick={() => setShowApiKey(!showApiKey)}>{showApiKey ? '隐藏' : '显示'}</button>
-                    <button className="btn btn-danger btn-sm">删除</button>
-                  </div>
+              {apiKeysLoading ? (
+                <div className="stack-4">
+                  <div className="card"><div className="skeleton-line" style={{ width: '60%' }} /></div>
+                  <div className="card"><div className="skeleton-line" style={{ width: '50%' }} /></div>
                 </div>
-                <div className="card">
-                  <div className="row-between">
-                    <span style={{ color: 'var(--fg)' }}>火山引擎 API Key</span>
-                    <span className="badge badge-muted">未配置</span>
-                  </div>
-                  <div className="api-key-row">
-                    <input type="text" placeholder="请输入API密钥" />
-                    <button className="btn btn-brand btn-sm" onClick={() => toast('密钥已保存')}>保存</button>
-                  </div>
+              ) : apiKeysError ? (
+                <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
+                  <p className="text-danger" style={{ marginBottom: 'var(--space-3)' }}>{apiKeysError}</p>
+                  <button className="btn btn-brand btn-sm" onClick={loadApiKeys}>重试</button>
                 </div>
-                <div className="card">
-                  <div className="row-between">
-                    <span style={{ color: 'var(--fg)' }}>OpenAI API Key</span>
-                    <span className="badge badge-muted">未配置</span>
-                  </div>
-                  <div className="api-key-row">
-                    <input type="text" placeholder="请输入API密钥" />
-                    <button className="btn btn-brand btn-sm" onClick={() => toast('密钥已保存')}>保存</button>
-                  </div>
+              ) : (
+                <div className="stack-4">
+                  {apiKeys.length === 0 && !showNewKeyInput ? (
+                    <p className="text-muted" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>暂无 API 密钥</p>
+                  ) : (
+                    apiKeys.map((key) => (
+                      <div className="card" key={key.id}>
+                        <div className="row-between">
+                          <span style={{ color: 'var(--fg)' }}>{key.name}</span>
+                          <span className="badge badge-success">已配置</span>
+                        </div>
+                        <div className="api-key-row">
+                          <input type="text" value={newlyCreatedKey && `thash_key_••••••••••••••••••••` || `thash_key_••••••••••••••••••••`} readOnly />
+                          {newlyCreatedKey ? (
+                            <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard.writeText(newlyCreatedKey); toast('已复制到剪贴板'); }}>复制</button>
+                          ) : (
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowApiKey(!showApiKey)}>{showApiKey ? '隐藏' : '显示'}</button>
+                          )}
+                          <button className="btn btn-danger btn-sm" onClick={async () => {
+                            try {
+                              await settingsApi.deleteApiKey(key.id);
+                              setApiKeys((prev) => prev.filter((k) => k.id !== key.id));
+                              toast('密钥已删除');
+                            } catch (err) {
+                              toast((err instanceof ApiError ? err.message : '删除失败'));
+                            }
+                          }}>删除</button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {showNewKeyInput ? (
+                    <div className="card" style={{ borderColor: 'var(--accent)' }}>
+                      <div className="api-key-row">
+                        <input
+                          type="text"
+                          placeholder="密钥名称（如：即梦 API）"
+                          value={newKeyName}
+                          onChange={(e) => setNewKeyName(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && newKeyName.trim()) {
+                              try {
+                                const result = await settingsApi.createApiKey({ name: newKeyName.trim() });
+                                setApiKeys((prev) => [...prev, { id: result.id, name: newKeyName.trim(), created_at: new Date().toISOString() }]);
+                                setNewlyCreatedKey(result.key);
+                                setNewKeyName('');
+                                setShowNewKeyInput(false);
+                                toast('密钥已创建');
+                              } catch (err) {
+                                toast((err instanceof ApiError ? err.message : '创建失败'));
+                              }
+                            }
+                            if (e.key === 'Escape') { setShowNewKeyInput(false); setNewKeyName(''); }
+                          }}
+                        />
+                        <button className="btn btn-brand btn-sm" disabled={!newKeyName.trim()} onClick={async () => {
+                          if (!newKeyName.trim()) return;
+                          try {
+                            const result = await settingsApi.createApiKey({ name: newKeyName.trim() });
+                            setApiKeys((prev) => [...prev, { id: result.id, name: newKeyName.trim(), created_at: new Date().toISOString() }]);
+                            setNewlyCreatedKey(result.key);
+                            setNewKeyName('');
+                            setShowNewKeyInput(false);
+                            toast('密钥已创建');
+                          } catch (err) {
+                            toast((err instanceof ApiError ? err.message : '创建失败'));
+                          }
+                        }}>保存</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowNewKeyInput(false); setNewKeyName(''); }}>取消</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button className="btn btn-secondary btn-sm" onClick={() => setShowNewKeyInput(true)}>+ 添加密钥</button>
+                  )}
                 </div>
-                <button className="btn btn-secondary btn-sm">+ 添加密钥</button>
-              </div>
+              )}
             </div>
           )}
 
@@ -352,61 +453,60 @@ export default function SettingsPage() {
           {activeTab === 'suppliers' && (
             <div className="settings-section">
               <h3>供应商配置</h3>
-              <div className="stack-3">
-                <div className="card">
-                  <div className="row-between">
-                    <div>
-                      <span style={{ color: 'var(--fg)' }}>图片生成优先</span>
-                      <p className="body-muted body-sm">选择默认图片供应商</p>
-                    </div>
-                    <div className="field">
-                      <select>
-                        <option>Seedream 5.0（即梦）</option>
-                        <option>Nano Banana 2（火山引擎）</option>
-                        <option>GPT Image 2 (OpenAI)</option>
-                      </select>
-                    </div>
-                  </div>
+              {suppliersLoading ? (
+                <div className="stack-3">
+                  <div className="card"><div className="skeleton-line" style={{ width: '50%' }} /></div>
+                  <div className="card"><div className="skeleton-line" style={{ width: '60%' }} /></div>
                 </div>
-                <div className="card">
-                  <div className="row-between">
-                    <div>
-                      <span style={{ color: 'var(--fg)' }}>视频生成优先</span>
-                      <p className="body-muted body-sm">选择默认视频供应商</p>
-                    </div>
-                    <div className="field">
-                      <select>
-                        <option>Seedance 2.0（即梦）</option>
-                        <option>Vidu Q3</option>
-                        <option>Veo 3.1 (Google)</option>
-                      </select>
-                    </div>
-                  </div>
+              ) : suppliersError ? (
+                <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
+                  <p className="text-danger" style={{ marginBottom: 'var(--space-3)' }}>{suppliersError}</p>
+                  <button className="btn btn-brand btn-sm" onClick={loadSuppliers}>重试</button>
                 </div>
-                <div className="card">
-                  <div className="row-between">
-                    <div>
-                      <span style={{ color: 'var(--fg)' }}>自动降级</span>
-                      <p className="body-muted body-sm">主供应商不可用时自动切换</p>
-                    </div>
-                    <div
-                      className={`toggle-switch${fallbackOn ? ' on' : ''}`}
-                      onClick={() => { setFallbackOn(!fallbackOn); toast('自动降级已' + (!fallbackOn ? '启用' : '禁用')); }}
-                    />
-                  </div>
+              ) : suppliers.length === 0 ? (
+                <p className="text-muted" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>暂无供应商配置</p>
+              ) : (
+                <div className="stack-3">
+                  {suppliers.map((supplier) => {
+                    const typeLabel = supplier.type === 'image' ? '图片生成' : supplier.type === 'video' ? '视频生成' : supplier.type === 'llm' ? 'LLM 文本' : supplier.type === 'tts' ? 'TTS 语音' : supplier.type;
+                    return (
+                      <div className="card" key={supplier.id || `${supplier.type}-${supplier.name}`}>
+                        <div className="row-between">
+                          <div>
+                            <span style={{ color: 'var(--fg)' }}>{supplier.name}</span>
+                            <p className="body-muted body-sm">{typeLabel}{supplier.enabled ? ' · 已启用' : ' · 已禁用'}</p>
+                          </div>
+                          <div
+                            className={`toggle-switch${supplier.enabled ? ' on' : ''}`}
+                            onClick={async () => {
+                              const newEnabled = !supplier.enabled;
+                              // Optimistic update
+                              setSuppliers((prev) => prev.map((s) =>
+                                (s.id || `${s.type}-${s.name}`) === (supplier.id || `${supplier.type}-${supplier.name}`)
+                                  ? { ...s, enabled: newEnabled }
+                                  : s
+                              ));
+                              try {
+                                const supplierId = supplier.id || `${supplier.type}-${supplier.name}`;
+                                await settingsApi.updateSupplier(supplierId, { enabled: newEnabled });
+                                toast(`${supplier.name} 已${newEnabled ? '启用' : '禁用'}`);
+                              } catch (err) {
+                                // Rollback on failure
+                                setSuppliers((prev) => prev.map((s) =>
+                                  (s.id || `${s.type}-${s.name}`) === (supplier.id || `${supplier.type}-${supplier.name}`)
+                                    ? { ...s, enabled: supplier.enabled }
+                                    : s
+                                ));
+                                toast((err instanceof ApiError ? err.message : '更新失败'));
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="card">
-                  <div className="row-between">
-                    <div>
-                      <span style={{ color: 'var(--fg)' }}>TTS 优先</span>
-                      <p className="body-muted body-sm">选择默认 TTS 供应商</p>
-                    </div>
-                    <div className="field">
-                      <select><option>MiniMax TTS</option><option>火山引擎 TTS</option></select>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
 

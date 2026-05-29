@@ -4,18 +4,14 @@
   "private": true,
   "description": "Thash.videos — AI短剧创作平台",
   "scripts": {
-    "build": "next build",
     "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
@@ -35,7 +31,6 @@
     "jsdom": "^25.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.0",
-    "vitest": "^3.0.0",
-    "wrangler": "^4.95.0"
+    "vitest": "^3.0.0"
   }
 }

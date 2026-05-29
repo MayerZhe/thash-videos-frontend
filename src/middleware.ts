@@ -10,13 +10,15 @@ const PUBLIC_PATHS = [
   '/verify-email',
   '/auth',
   '/video',
+  '/short-video',
 ] as const;
 
 const ALWAYS_PUBLIC_PREFIXES = ['/_next', '/api', '/favicon.ico', '/logo.png'] as const;
 
 function isPublicPath(pathname: string): boolean {
-  // Exact or prefix match for public paths
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+  // Exact or prefix match for public paths.
+  // Guard p !== '/' prevents '//' prefix from p + '/' when p is the root path.
+  if (PUBLIC_PATHS.some((p) => pathname === p || (p !== '/' && pathname.startsWith(p + '/')))) {
     return true;
   }
   // Always-public asset/API prefixes

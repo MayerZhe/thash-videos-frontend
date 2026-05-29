@@ -4,23 +4,26 @@ import { useEffect, useState } from 'react';
 
 const BACKEND_UNREACHABLE = '__backend_unreachable__';
 
+// Build-time constant — Next.js inlines process.env.NEXT_PUBLIC_* at build time
+const IS_MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_API === 'true';
+
 export default function MockBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Check immediately (flag may already be set by a prior API call)
+    if (!IS_MOCK_MODE) return;
+
     if (typeof window !== 'undefined' && (window as any)[BACKEND_UNREACHABLE]) {
       setVisible(true);
       return;
     }
 
-    // Poll intermittently in case mock fallback is triggered later
     const id = setInterval(() => {
-      if (typeof window !== 'undefined' && (window as any)[BACKEND_UNREACHABLE]) {
+      if ((window as any)[BACKEND_UNREACHABLE]) {
         setVisible(true);
         clearInterval(id);
       }
-    }, 500);
+    }, 5000);
 
     return () => clearInterval(id);
   }, []);

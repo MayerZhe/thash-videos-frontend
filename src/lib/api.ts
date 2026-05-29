@@ -89,8 +89,8 @@ async function request<T>(
       useAuthStore.getState().clearAuth();
       sessionStorage.setItem('thash_session_expired', '1');
       const currentPath = window.location.pathname;
-      const publicPaths = ['/', '/landing', '/login', '/register', '/verify-email', '/auth', '/video'];
-      const isPublicPath = publicPaths.some(p => currentPath === p || currentPath.startsWith(p + '/'));
+      const publicPaths = ['/', '/landing', '/login', '/register', '/verify-email', '/auth', '/video', '/short-video'];
+      const isPublicPath = publicPaths.some(p => currentPath === p || (p !== '/' && currentPath.startsWith(p + '/')));
       if (!isPublicPath) {
         window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
       }
@@ -182,7 +182,19 @@ import type {
   ProjectComment,
 } from './types';
 
-import { mockApi } from './api-mock';
+// Lazy-load mock API — the module is only imported when NEXT_PUBLIC_MOCK_API=true at runtime.
+// In production builds the getter is never called, so the chunk is never fetched.
+const USE_MOCK = process.env.NEXT_PUBLIC_MOCK_API === 'true';
+type MockApiType = typeof import('./api-mock').mockApi;
+let _mockApiCache: MockApiType | undefined;
+function getMockApi(): MockApiType {
+  if (!_mockApiCache) {
+    // Dynamic import — webpack splits api-mock into a separate chunk
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    _mockApiCache = require('./api-mock').mockApi as MockApiType;
+  }
+  return _mockApiCache;
+}
 
 // ─── Real API object implementations (unexported, wrapped below) ───
 
@@ -590,44 +602,30 @@ const _assetsApi = {
 };
 
 // ─── Mock Fallback Proxy ───
-
-const USE_MOCK = process.env.NEXT_PUBLIC_MOCK_API === 'true';
+// In dev mode (NEXT_PUBLIC_MOCK_API=true), API calls use mock data directly.
+// In production, only real API calls are made — network errors propagate to callers.
 
 function withMockFallback<T extends Record<string, (...args: any[]) => any>>(
   realApi: T,
-  mockApiObj: T,
+  mockApiGetter: () => T,
   apiName: string,
 ): T {
   const handler: ProxyHandler<T> = {
     get(target, prop, receiver) {
       const realMethod = Reflect.get(target, prop, receiver);
       if (typeof realMethod !== 'function') return realMethod;
-      const mockMethod = Reflect.get(mockApiObj, prop, receiver) as (...args: any[]) => any;
-      return async (...args: any[]) => {
-        if (USE_MOCK) {
+
+      if (USE_MOCK) {
+        const mockApiObj = mockApiGetter();
+        const mockMethod = Reflect.get(mockApiObj, prop, receiver) as (...args: any[]) => any;
+        return async (...args: any[]) => {
           console.debug(`[Mock] ${apiName}.${String(prop)}`);
           return mockMethod(...args);
-        }
-        try {
-          return await realMethod(...args);
-        } catch (err) {
-          if (
-            err instanceof TypeError ||
-            (err instanceof Error && (
-              err.message === 'Failed to fetch' ||
-              err.message.includes('NetworkError') ||
-              err.message.includes('fetch failed')
-            ))
-          ) {
-            console.warn(`[Mock Fallback] ${apiName}.${String(prop)} — backend unreachable, using mock data`);
-            // Set global flag for MockBanner detection
-            if (typeof window !== 'undefined' && !(window as any).__backend_unreachable__) {
-              (window as any).__backend_unreachable__ = true;
-            }
-            return mockMethod(...args);
-          }
-          throw err;
-        }
+        };
+      }
+
+      return async (...args: any[]) => {
+        return realMethod(...args);
       };
     },
   };
@@ -636,24 +634,24 @@ function withMockFallback<T extends Record<string, (...args: any[]) => any>>(
 
 // ─── Exported API objects (real API with mock fallback) ───
 
-export const projectsApi = withMockFallback(_projectsApi, mockApi.projectsApi, 'projectsApi');
-export const episodesApi = withMockFallback(_episodesApi, mockApi.episodesApi, 'episodesApi');
-export const versionsApi = withMockFallback(_versionsApi, mockApi.versionsApi, 'versionsApi');
-export const settingsApi = withMockFallback(_settingsApi, mockApi.settingsApi, 'settingsApi');
-export const authApi = withMockFallback(_authApi, mockApi.authApi, 'authApi');
-export const creditsApi = withMockFallback(_creditsApi, mockApi.creditsApi, 'creditsApi');
-export const paymentsApi = withMockFallback(_paymentsApi, mockApi.paymentsApi, 'paymentsApi');
-export const usageApi = withMockFallback(_usageApi, mockApi.usageApi, 'usageApi');
-export const exportApi = withMockFallback(_exportApi, mockApi.exportApi, 'exportApi');
-export const pipelineApi = withMockFallback(_pipelineApi, mockApi.pipelineApi, 'pipelineApi');
-export const videoProjectsApi = withMockFallback(_videoProjectsApi, mockApi.videoProjectsApi, 'videoProjectsApi');
-export const videoScenesApi = withMockFallback(_videoScenesApi, mockApi.videoScenesApi, 'videoScenesApi');
-export const videoCharactersApi = withMockFallback(_videoCharactersApi, mockApi.videoCharactersApi, 'videoCharactersApi');
-export const videoAssetsApi = withMockFallback(_videoAssetsApi, mockApi.videoAssetsApi, 'videoAssetsApi');
-export const videoExportsApi = withMockFallback(_videoExportsApi, mockApi.videoExportsApi, 'videoExportsApi');
-export const publishingApi = withMockFallback(_publishingApi, mockApi.publishingApi, 'publishingApi');
-export const analyticsApi = withMockFallback(_analyticsApi, mockApi.analyticsApi, 'analyticsApi');
-export const commentsApi = withMockFallback(_commentsApi, mockApi.commentsApi, 'commentsApi');
-export const assetsApi = withMockFallback(_assetsApi, mockApi.assetsApi, 'assetsApi');
+export const projectsApi = withMockFallback(_projectsApi, () => getMockApi().projectsApi, 'projectsApi');
+export const episodesApi = withMockFallback(_episodesApi, () => getMockApi().episodesApi, 'episodesApi');
+export const versionsApi = withMockFallback(_versionsApi, () => getMockApi().versionsApi, 'versionsApi');
+export const settingsApi = withMockFallback(_settingsApi, () => getMockApi().settingsApi, 'settingsApi');
+export const authApi = withMockFallback(_authApi, () => getMockApi().authApi, 'authApi');
+export const creditsApi = withMockFallback(_creditsApi, () => getMockApi().creditsApi, 'creditsApi');
+export const paymentsApi = withMockFallback(_paymentsApi, () => getMockApi().paymentsApi, 'paymentsApi');
+export const usageApi = withMockFallback(_usageApi, () => getMockApi().usageApi, 'usageApi');
+export const exportApi = withMockFallback(_exportApi, () => getMockApi().exportApi, 'exportApi');
+export const pipelineApi = withMockFallback(_pipelineApi, () => getMockApi().pipelineApi, 'pipelineApi');
+export const videoProjectsApi = withMockFallback(_videoProjectsApi, () => getMockApi().videoProjectsApi, 'videoProjectsApi');
+export const videoScenesApi = withMockFallback(_videoScenesApi, () => getMockApi().videoScenesApi, 'videoScenesApi');
+export const videoCharactersApi = withMockFallback(_videoCharactersApi, () => getMockApi().videoCharactersApi, 'videoCharactersApi');
+export const videoAssetsApi = withMockFallback(_videoAssetsApi, () => getMockApi().videoAssetsApi, 'videoAssetsApi');
+export const videoExportsApi = withMockFallback(_videoExportsApi, () => getMockApi().videoExportsApi, 'videoExportsApi');
+export const publishingApi = withMockFallback(_publishingApi, () => getMockApi().publishingApi, 'publishingApi');
+export const analyticsApi = withMockFallback(_analyticsApi, () => getMockApi().analyticsApi, 'analyticsApi');
+export const commentsApi = withMockFallback(_commentsApi, () => getMockApi().commentsApi, 'commentsApi');
+export const assetsApi = withMockFallback(_assetsApi, () => getMockApi().assetsApi, 'assetsApi');
 
 export { ApiError };

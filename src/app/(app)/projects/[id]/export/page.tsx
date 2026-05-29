@@ -47,6 +47,7 @@ export default function ExportPage() {
   const [format, setFormat] = useState<'mp4' | 'jianying_draft'>('mp4');
   const [resolution, setResolution] = useState<'720p' | '1080p' | '4k'>('1080p');
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const toast = (msg: string) => {
     const id = Date.now();
@@ -66,10 +67,23 @@ export default function ExportPage() {
   }
 
   useEffect(() => {
+    setError(null);
     loadExports()
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : '加载失败，请稍后重试'))
       .finally(() => setLoading(false));
   }, [projectId]);
+
+  async function handleRetry() {
+    setError(null);
+    setLoading(true);
+    try {
+      await loadExports();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleCreate() {
     if (!projectId) return;
@@ -100,6 +114,13 @@ export default function ExportPage() {
     <div className="st-content">
       <p className="eyebrow">// 导出管理</p>
       <h2>导出管理</h2>
+
+      {error && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: 'var(--danger)', fontSize: 'var(--text-sm)' }}>{error}</span>
+          <button className="btn btn-ghost btn-sm" onClick={handleRetry} style={{ color: 'var(--danger)' }}>重试</button>
+        </div>
+      )}
 
       {/* Create Export */}
       <div className="export-create card">
