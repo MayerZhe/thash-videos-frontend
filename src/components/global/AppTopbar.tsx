@@ -57,7 +57,7 @@ export default function AppTopbar() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
         {/* Notification bell */}
         <Link
-          href={activeProjectId ? `/projects/${activeProjectId}/collab` : '#'}
+          href={activeProjectId ? `/short-series/projects/${activeProjectId}/collab` : '#'}
           className="topbar-notification"
           title="通知"
         >

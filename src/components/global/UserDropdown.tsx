@@ -50,7 +50,7 @@ export default function UserDropdown({ user }: { user: User }) {
               </span>
             </div>
           </div>
-          <Link href="/dashboard" className="user-dropdown-item" onClick={() => setOpen(false)}>
+          <Link href="/short-series/projects" className="user-dropdown-item" onClick={() => setOpen(false)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 3h18v18H3z M3 9h18 M9 21V9" />
             </svg>

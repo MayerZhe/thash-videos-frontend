@@ -11,7 +11,7 @@ const PUBLIC_PATHS = [
   '/auth',
   '/video',
   '/short-video',
-  '/dashboard',
+  '/short-series',
 ] as const;
 
 const ALWAYS_PUBLIC_PREFIXES = ['/_next', '/api', '/favicon.ico', '/logo.png'] as const;

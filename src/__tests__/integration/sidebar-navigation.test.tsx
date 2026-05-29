@@ -62,7 +62,7 @@ beforeEach(() => {
 
 function p(path: string): string {
   return appStore.activeProjectId
-    ? `/projects/${appStore.activeProjectId}${path}`
+    ? `/short-series/projects/${appStore.activeProjectId}${path}`
     : '#';
 }
 
@@ -77,12 +77,12 @@ describe('Integration — dashboard click → sidebar update', () => {
     expect(appStore.activeProjectId).toBe('project-from-dashboard');
 
     // Sidebar p() should now return correct paths
-    expect(p('/episodes/1')).toBe('/projects/project-from-dashboard/episodes/1');
-    expect(p('/assets')).toBe('/projects/project-from-dashboard/assets');
-    expect(p('/analytics')).toBe('/projects/project-from-dashboard/analytics');
-    expect(p('/publishing')).toBe('/projects/project-from-dashboard/publishing');
-    expect(p('/versions')).toBe('/projects/project-from-dashboard/versions');
-    expect(p('/collab')).toBe('/projects/project-from-dashboard/collab');
+    expect(p('/episodes/1')).toBe('/short-series/projects/project-from-dashboard/episodes/1');
+    expect(p('/assets')).toBe('/short-series/projects/project-from-dashboard/assets');
+    expect(p('/analytics')).toBe('/short-series/projects/project-from-dashboard/analytics');
+    expect(p('/publishing')).toBe('/short-series/projects/project-from-dashboard/publishing');
+    expect(p('/versions')).toBe('/short-series/projects/project-from-dashboard/versions');
+    expect(p('/collab')).toBe('/short-series/projects/project-from-dashboard/collab');
   });
 
   it('should have correct p() hrefs after store is set', () => {
@@ -92,8 +92,8 @@ describe('Integration — dashboard click → sidebar update', () => {
 
     // After: project selected
     appStore.activeProjectId = 'fresh-project';
-    expect(p('/episodes/1')).toBe('/projects/fresh-project/episodes/1');
-    expect(p('/assets')).toBe('/projects/fresh-project/assets');
+    expect(p('/episodes/1')).toBe('/short-series/projects/fresh-project/episodes/1');
+    expect(p('/assets')).toBe('/short-series/projects/fresh-project/assets');
   });
 });
 
@@ -108,7 +108,7 @@ describe('Integration — project detail mount → sidebar enabled', () => {
     appStore.activeProjectId = projectId;
 
     expect(appStore.activeProjectId).toBe(projectId);
-    expect(p('/episodes/1')).toBe('/projects/mount-project-42/episodes/1');
+    expect(p('/episodes/1')).toBe('/short-series/projects/mount-project-42/episodes/1');
   });
 
   it('should enable sidebar via URL fallback when store not yet set', () => {
@@ -118,7 +118,7 @@ describe('Integration — project detail mount → sidebar enabled', () => {
 
     // Store gets populated (simulating mount)
     appStore.activeProjectId = 'url-fallback-proj';
-    expect(p('/episodes/1')).toBe('/projects/url-fallback-proj/episodes/1');
+    expect(p('/episodes/1')).toBe('/short-series/projects/url-fallback-proj/episodes/1');
   });
 });
 
@@ -130,7 +130,7 @@ describe('Integration — return to dashboard → sidebar disabled', () => {
   it('should disable sidebar project items when store is cleared', () => {
     // First: project is active
     appStore.activeProjectId = 'active-proj';
-    expect(p('/episodes/1')).toBe('/projects/active-proj/episodes/1');
+    expect(p('/episodes/1')).toBe('/short-series/projects/active-proj/episodes/1');
 
     // Then: navigate back to dashboard (store cleared)
     appStore.activeProjectId = null;
@@ -146,7 +146,7 @@ describe('Integration — return to dashboard → sidebar disabled', () => {
       p('/analytics'),
     ];
     for (const href of enabledHrefs) {
-      expect(href).toMatch(/^\/projects\/enabled-proj/);
+      expect(href).toMatch(/^\/short-series\/projects\/enabled-proj/);
     }
 
     // Disable (simulate unmount or navigate to dashboard)
@@ -170,12 +170,12 @@ describe('Integration — dashboard link always accessible', () => {
   it('should have dashboard link enabled regardless of project state', () => {
     // Without project
     appStore.activeProjectId = null;
-    // The dashboard sidebar item has href='/dashboard' always (no needsProject)
-    const dashboardHref = '/dashboard';
-    expect(dashboardHref).toBe('/dashboard');
+    // The dashboard sidebar item has href='/short-series/projects' always (no needsProject)
+    const dashboardHref = '/short-series/projects';
+    expect(dashboardHref).toBe('/short-series/projects');
 
     // With project
     appStore.activeProjectId = 'some-project';
-    expect(dashboardHref).toBe('/dashboard');
+    expect(dashboardHref).toBe('/short-series/projects');
   });
 });

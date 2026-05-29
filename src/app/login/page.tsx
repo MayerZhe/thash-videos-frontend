@@ -10,7 +10,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setAuth, isAuthenticated } = useAuthStore();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = searchParams.get('redirect') || '/short-series/projects';
   const [mode, setMode] = useState<'credentials' | 'oauth'>('oauth');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

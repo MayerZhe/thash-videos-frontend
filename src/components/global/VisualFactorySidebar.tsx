@@ -58,7 +58,7 @@ export default function VisualFactorySidebar() {
 
   const sdNavItems = [
     {
-      href: '/dashboard',
+      href: '/short-series/projects',
       label: '工作台',
       svgPath: 'M3 3h18v18H3z M3 9h18 M9 21V9',
     },

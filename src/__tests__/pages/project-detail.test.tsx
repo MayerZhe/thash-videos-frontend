@@ -32,7 +32,7 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => routerMocks,
-  usePathname: () => `/projects/${mockProjectId}`,
+  usePathname: () => `/short-series/projects/${mockProjectId}`,
   useSearchParams: () => new URLSearchParams(),
   useParams: () => ({ id: mockProjectId }),
 }));
@@ -58,7 +58,7 @@ vi.mock('@/stores/auth', () => ({
   },
 }));
 
-import ProjectDetailPage from '@/app/(app)/projects/[id]/page';
+import ProjectDetailPage from '@/app/(app)/short-series/projects/[id]/page';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -241,6 +241,6 @@ describe('ProjectDetailPage — add episode', () => {
     // Advance past the 500ms setTimeout
     await vi.advanceTimersByTimeAsync(600);
 
-    expect(routerMocks.push).toHaveBeenCalledWith('/projects/test-project-1/episodes/3');
+    expect(routerMocks.push).toHaveBeenCalledWith('/short-series/projects/test-project-1/episodes/3');
   });
 });

@@ -62,6 +62,18 @@ describe('middleware — public routes', () => {
     expect(res.status).toBe(200);
   });
 
+  it('allows /short-series without token (public browsing)', () => {
+    const req = buildRequest('/short-series');
+    const res = middleware(req);
+    expect(res.status).toBe(200);
+  });
+
+  it('allows /short-series/projects sub-paths without token', () => {
+    const req = buildRequest('/short-series/projects/abc');
+    const res = middleware(req);
+    expect(res.status).toBe(200);
+  });
+
   it('allows /video sub-paths without token', () => {
     const req = buildRequest('/video/123');
     const res = middleware(req);
@@ -88,17 +100,6 @@ describe('middleware — public routes', () => {
 });
 
 describe('middleware — protected routes', () => {
-  it('redirects /dashboard to /login when no token', () => {
-    const req = buildRequest('/dashboard');
-    const res = middleware(req);
-    expect(res.status).toBe(307);
-    const location = res.headers.get('Location');
-    expect(location).not.toBeNull();
-    expect(location!).toContain('/login');
-    expect(location!).toContain('redirect=');
-    expect(location!).toContain(encodeURIComponent('/dashboard'));
-  });
-
   it('redirects /settings to /login when no token', () => {
     const req = buildRequest('/settings');
     const res = middleware(req);
@@ -109,22 +110,16 @@ describe('middleware — protected routes', () => {
     expect(location!).toContain('redirect=');
   });
 
-  it('redirects /projects to /login when no token', () => {
-    const req = buildRequest('/projects');
+  it('redirects /credits to /login when no token', () => {
+    const req = buildRequest('/credits');
     const res = middleware(req);
     expect(res.status).toBe(307);
   });
 
-  it('redirects /projects/123 to /login when no token', () => {
-    const req = buildRequest('/projects/123');
+  it('redirects /usage to /login when no token', () => {
+    const req = buildRequest('/usage');
     const res = middleware(req);
     expect(res.status).toBe(307);
-  });
-
-  it('allows /dashboard with valid token', () => {
-    const req = buildRequest('/dashboard', 'valid-token-123');
-    const res = middleware(req);
-    expect(res.status).toBe(200);
   });
 
   it('allows /settings with valid token', () => {
@@ -133,8 +128,8 @@ describe('middleware — protected routes', () => {
     expect(res.status).toBe(200);
   });
 
-  it('allows /projects with valid token', () => {
-    const req = buildRequest('/projects', 'valid-token-789');
+  it('allows /credits with valid token', () => {
+    const req = buildRequest('/credits', 'valid-token-789');
     const res = middleware(req);
     expect(res.status).toBe(200);
   });
@@ -146,26 +141,23 @@ describe('middleware — protected routes', () => {
   });
 });
 
-describe('middleware — /dashboard is now protected', () => {
-  it('/dashboard without token redirects to /login', () => {
-    const req = buildRequest('/dashboard');
-    const res = middleware(req);
-    expect(res.status).toBe(307);
-  });
-
-  it('/dashboard with token passes through', () => {
-    const req = buildRequest('/dashboard', 'token');
+describe('middleware — /short-series is public (no auth needed)', () => {
+  it('/short-series without token is allowed (public)', () => {
+    const req = buildRequest('/short-series');
     const res = middleware(req);
     expect(res.status).toBe(200);
   });
 
-  it('/dashboard sub-paths also require auth', () => {
-    // /dashboard/analytics is not an exact match for /dashboard
-    // and is not a prefix of any public path, so it's protected
-    const req = buildRequest('/dashboard/analytics');
+  it('/short-series/projects without token is allowed (public)', () => {
+    const req = buildRequest('/short-series/projects');
     const res = middleware(req);
-    expect(res.status).toBe(307);
-    expect(res.headers.get('Location')).toContain('/login');
+    expect(res.status).toBe(200);
+  });
+
+  it('/short-series/projects/123 sub-paths also public', () => {
+    const req = buildRequest('/short-series/projects/123');
+    const res = middleware(req);
+    expect(res.status).toBe(200);
   });
 });
 
@@ -173,13 +165,13 @@ describe('middleware — cookie token auth flow', () => {
   it('reads token from thash_auth_token cookie', () => {
     // The auth store's setAuth() sets document.cookie with
     // key=thash_auth_token, value=encodeURIComponent(token)
-    const req = buildRequest('/dashboard', 'my-secret-jwt-token');
+    const req = buildRequest('/settings', 'my-secret-jwt-token');
     const res = middleware(req);
     expect(res.status).toBe(200);
   });
 
   it('redirects when cookie has empty token value', () => {
-    const req = buildRequest('/projects/123', '');
+    const req = buildRequest('/settings', '');
     const res = middleware(req);
     // Empty string is falsy, so redirect to login
     expect(res.status).toBe(307);
@@ -187,7 +179,7 @@ describe('middleware — cookie token auth flow', () => {
   });
 
   it('redirects when cookie header is present but without thash_auth_token', () => {
-    const url = 'http://localhost:3000/projects/123';
+    const url = 'http://localhost:3000/settings';
     const headers = new Headers();
     headers.set('Cookie', 'other_cookie=value; another_cookie=123');
     const req = new NextRequest(url, { headers });
@@ -196,7 +188,7 @@ describe('middleware — cookie token auth flow', () => {
   });
 
   it('extracts token correctly from multiple cookies', () => {
-    const url = 'http://localhost:3000/dashboard';
+    const url = 'http://localhost:3000/settings';
     const headers = new Headers();
     headers.set('Cookie', 'session_id=abc; thash_auth_token=my-token-456; user_pref=dark');
     const req = new NextRequest(url, { headers });
@@ -207,7 +199,7 @@ describe('middleware — cookie token auth flow', () => {
   it('handles URL-encoded token values (as set by setAuth)', () => {
     // setAuth sets: document.cookie = `${key}=${encodeURIComponent(token)}`
     const encodedToken = encodeURIComponent('token/with+special=chars&more');
-    const url = 'http://localhost:3000/dashboard';
+    const url = 'http://localhost:3000/settings';
     const headers = new Headers();
     headers.set('Cookie', `thash_auth_token=${encodedToken}`);
     const req = new NextRequest(url, { headers });
@@ -217,7 +209,7 @@ describe('middleware — cookie token auth flow', () => {
   });
 
   it('redirect includes original path in redirect param for deep links', () => {
-    const deepPath = '/projects/abc-123/assets';
+    const deepPath = '/settings/api-keys';
     const req = buildRequest(deepPath);
     const res = middleware(req);
     expect(res.status).toBe(307);
@@ -226,7 +218,7 @@ describe('middleware — cookie token auth flow', () => {
   });
 
   it('redirect preserves query params when no token', () => {
-    const url = 'http://localhost:3000/projects/123?tab=settings';
+    const url = 'http://localhost:3000/settings?tab=profile';
     const req = new NextRequest(url);
     const res = middleware(req);
     expect(res.status).toBe(307);

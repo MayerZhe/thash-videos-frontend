@@ -84,13 +84,13 @@ describe('AppSidebar — navigation items', () => {
     expect(brand.closest('a')?.getAttribute('href')).toBe('/landing');
   });
 
-  it('should render the 项目管理 link to /dashboard', () => {
-    navMocks.usePathname.mockReturnValue('/dashboard');
+  it('should render the 项目管理 link to /short-series/projects', () => {
+    navMocks.usePathname.mockReturnValue('/short-series/projects');
     renderSidebar();
     const links = getNavLinks();
     const dashboardLink = links.find((a) => a.textContent?.includes('项目管理'));
     expect(dashboardLink).toBeDefined();
-    expect(dashboardLink?.getAttribute('href')).toBe('/dashboard');
+    expect(dashboardLink?.getAttribute('href')).toBe('/short-series/projects');
   });
 });
 
@@ -99,28 +99,28 @@ describe('AppSidebar — navigation items', () => {
  * ────────────────────────────────────────────── */
 
 describe('AppSidebar — URL projectId fallback', () => {
-  it('should extract projectId from /projects/{id}/... pathname', () => {
-    navMocks.usePathname.mockReturnValue('/projects/abc-123/assets');
+  it('should extract projectId from /short-series/projects/{id}/... pathname', () => {
+    navMocks.usePathname.mockReturnValue('/short-series/projects/abc-123/assets');
     appStore.activeProjectId = null;
     renderSidebar();
     const links = getNavLinks();
     const contentLink = links.find((a) => a.textContent?.includes('内容创作'));
     expect(contentLink).toBeDefined();
-    expect(contentLink?.getAttribute('href')).toBe('/projects/abc-123/episodes/1');
+    expect(contentLink?.getAttribute('href')).toBe('/short-series/projects/abc-123/episodes/1');
   });
 
-  it('should extract projectId from /projects/{id} (no trailing path)', () => {
-    navMocks.usePathname.mockReturnValue('/projects/abc-123');
+  it('should extract projectId from /short-series/projects/{id} (no trailing path)', () => {
+    navMocks.usePathname.mockReturnValue('/short-series/projects/abc-123');
     appStore.activeProjectId = null;
     renderSidebar();
     const links = getNavLinks();
     const assetsLink = links.find((a) => a.textContent?.includes('素材管理'));
     expect(assetsLink).toBeDefined();
-    expect(assetsLink?.getAttribute('href')).toBe('/projects/abc-123/assets');
+    expect(assetsLink?.getAttribute('href')).toBe('/short-series/projects/abc-123/assets');
   });
 
-  it('should return null for urlProjectId on /dashboard', () => {
-    navMocks.usePathname.mockReturnValue('/dashboard');
+  it('should return null for urlProjectId on /short-series/projects', () => {
+    navMocks.usePathname.mockReturnValue('/short-series/projects');
     appStore.activeProjectId = null;
     renderSidebar();
     const links = getNavLinks();
@@ -150,7 +150,7 @@ describe('AppSidebar — URL projectId fallback', () => {
 
 describe('AppSidebar — disabled state', () => {
   it('should render needsProject items as <span> when activeProjectId is null', () => {
-    navMocks.usePathname.mockReturnValue('/dashboard');
+    navMocks.usePathname.mockReturnValue('/short-series/projects');
     appStore.activeProjectId = null;
     renderSidebar();
     const disabledItems = document.querySelectorAll('.sidebar-nav-disabled');
@@ -162,7 +162,7 @@ describe('AppSidebar — disabled state', () => {
   });
 
   it('should render needsProject items as <Link> when activeProjectId is set', () => {
-    navMocks.usePathname.mockReturnValue('/projects/test-1/episodes/1');
+    navMocks.usePathname.mockReturnValue('/short-series/projects/test-1/episodes/1');
     appStore.activeProjectId = 'test-1';
     renderSidebar();
     const links = getNavLinks();
@@ -175,7 +175,7 @@ describe('AppSidebar — disabled state', () => {
   });
 
   it('should show tooltip on disabled items', () => {
-    navMocks.usePathname.mockReturnValue('/dashboard');
+    navMocks.usePathname.mockReturnValue('/short-series/projects');
     appStore.activeProjectId = null;
     renderSidebar();
     const disabledSpan = screen.getByText('内容创作');
@@ -190,7 +190,7 @@ describe('AppSidebar — disabled state', () => {
 
 describe('AppSidebar — disabled items never active', () => {
   it('should not highlight disabled items', () => {
-    navMocks.usePathname.mockReturnValue('/dashboard');
+    navMocks.usePathname.mockReturnValue('/short-series/projects');
     appStore.activeProjectId = null;
     renderSidebar();
     const disabledSpans = document.querySelectorAll('.sidebar-nav-disabled');
@@ -200,7 +200,7 @@ describe('AppSidebar — disabled items never active', () => {
   });
 
   it('should highlight matching active item when project is set', () => {
-    navMocks.usePathname.mockReturnValue('/projects/proj-x/assets');
+    navMocks.usePathname.mockReturnValue('/short-series/projects/proj-x/assets');
     appStore.activeProjectId = 'proj-x';
     renderSidebar();
     const links = getNavLinks();
@@ -215,23 +215,23 @@ describe('AppSidebar — disabled items never active', () => {
 
 describe('AppSidebar — store priority over URL', () => {
   it('should use store projectId when both store and URL have a project', () => {
-    navMocks.usePathname.mockReturnValue('/projects/project-B/assets');
+    navMocks.usePathname.mockReturnValue('/short-series/projects/project-B/assets');
     appStore.activeProjectId = 'project-A';
     renderSidebar();
     const links = getNavLinks();
     const contentLink = links.find((a) => a.textContent?.includes('内容创作'));
     expect(contentLink).toBeDefined();
-    expect(contentLink?.getAttribute('href')).toBe('/projects/project-A/episodes/1');
+    expect(contentLink?.getAttribute('href')).toBe('/short-series/projects/project-A/episodes/1');
   });
 
   it('should use URL as fallback when store is cleared', () => {
-    navMocks.usePathname.mockReturnValue('/projects/fallback-proj/analytics');
+    navMocks.usePathname.mockReturnValue('/short-series/projects/fallback-proj/analytics');
     appStore.activeProjectId = null;
     renderSidebar();
     const links = getNavLinks();
     const analyticsLink = links.find((a) => a.textContent?.includes('数据分析'));
     expect(analyticsLink).toBeDefined();
-    expect(analyticsLink?.getAttribute('href')).toBe('/projects/fallback-proj/analytics');
+    expect(analyticsLink?.getAttribute('href')).toBe('/short-series/projects/fallback-proj/analytics');
   });
 });
 

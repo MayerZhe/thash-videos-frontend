@@ -19,20 +19,20 @@ export default function AppSidebar() {
   const closeSidebar = useAppStore((s) => s.closeSidebar);
 
   // Derive projectId from URL as fallback when store has none set.
-  // Pattern: /projects/{id}/... → extract id from URL segment.
+  // Pattern: /short-series/projects/{id}/... → extract id from URL segment.
   const urlProjectId = (() => {
-    const m = pathname.match(/^\/projects\/([^/]+)/);
+    const m = pathname.match(/^\/short-series\/projects\/([^/]+)/);
     return m ? m[1] : null;
   })();
   const activeProjectId = storeProjectId || urlProjectId;
 
   const p = (path: string) =>
-    activeProjectId ? `/projects/${activeProjectId}${path}` : '#';
+    activeProjectId ? `/short-series/projects/${activeProjectId}${path}` : '#';
   const user = useAuthStore((s) => s.user);
 
   const navItems = [
     {
-      href: '/dashboard',
+      href: '/short-series/projects',
       label: '项目管理',
       svgPath: 'M3 3h18v18H3z M3 9h18 M9 21V9',
     },
@@ -98,7 +98,7 @@ export default function AppSidebar() {
           const needsProject = 'needsProject' in item;
           const disabled = needsProject && !activeProjectId;
           const href = item.href;
-          const isActive = href !== '#' && href !== '/dashboard'
+          const isActive = href !== '#' && href !== '/short-series/projects'
             ? (pathname === href || (href !== '/' && pathname.startsWith(href + '/')))
             : pathname === href;
 

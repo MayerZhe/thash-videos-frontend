@@ -27,7 +27,7 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => routerMocks,
-  usePathname: () => '/dashboard',
+  usePathname: () => '/short-series/projects',
   useSearchParams: () => new URLSearchParams(),
   useParams: () => ({}),
 }));
@@ -53,7 +53,7 @@ vi.mock('@/stores/auth', () => ({
   },
 }));
 
-import DashboardPage from '@/app/(app)/dashboard/page';
+import DashboardPage from '@/app/(app)/short-series/projects/page';
 
 function buildProject(id: string, title: string, status = 'draft', style = 'realistic') {
   return {
@@ -206,7 +206,7 @@ describe('DashboardPage — openProject sets store', () => {
     });
 
     fireEvent.click(screen.getByText('Navigate Project'));
-    expect(routerMocks.push).toHaveBeenCalledWith('/projects/nav-456');
+    expect(routerMocks.push).toHaveBeenCalledWith('/short-series/projects/nav-456');
   });
 });
 

@@ -51,7 +51,7 @@ export default function VideoPage() {
           </Link>
           <div className="nav-links">
             <Link href="/landing#features">功能</Link>
-            <Link href="/dashboard">短剧工厂</Link>
+            <Link href="/short-series/projects">短剧工厂</Link>
             <Link href="/short-video/projects">视觉工厂</Link>
             <Link href="/short-video/projects">进入工作台</Link>
           </div>

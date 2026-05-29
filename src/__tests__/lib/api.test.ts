@@ -444,7 +444,7 @@ describe('Real api.ts — 401 interceptor', () => {
     // jsdom Location objects have special behaviors that prevent direct href mutation
     const mockLocation: any = {
       href: '',
-      pathname: '/dashboard',
+      pathname: '/short-series/projects',
       origin: 'http://localhost:3000',
       search: '',
       hash: '',
@@ -526,7 +526,7 @@ describe('Real api.ts — 401 interceptor', () => {
     process.env.NEXT_PUBLIC_MOCK_API = 'false';
     process.env.NEXT_PUBLIC_API_URL = 'https://api.videos.thash.app';
 
-    window.location.pathname = '/dashboard';
+    window.location.pathname = '/settings';
 
     vi.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: false,
@@ -541,7 +541,7 @@ describe('Real api.ts — 401 interceptor', () => {
 
     // Should redirect to /login with the current path as redirect param
     expect(window.location.href).toContain('/login?redirect=');
-    expect(window.location.href).toContain(encodeURIComponent('/dashboard'));
+    expect(window.location.href).toContain(encodeURIComponent('/settings'));
   });
 
   it('401 on public path does NOT redirect (avoids redirect loop)', async () => {

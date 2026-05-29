@@ -38,7 +38,7 @@ function AuthCallbackInner() {
         if (!res.ok) throw new Error('Failed to fetch user');
         const user: User = await res.json();
         setAuth(user, token);
-        router.push('/dashboard');
+        router.push('/short-series/projects');
       } catch {
         setStatus('error');
         setErrorMsg('获取用户信息失败，请重试');

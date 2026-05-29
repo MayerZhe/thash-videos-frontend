@@ -22,7 +22,7 @@ export default function RegisterPage() {
   // Redirect to dashboard if already logged in
   useEffect(() => {
     if (isAuthenticated()) {
-      router.push('/dashboard');
+      router.push('/short-series/projects');
     }
   }, []);
 
@@ -56,7 +56,7 @@ export default function RegisterPage() {
         const loginRes = await authApi.login({ email, password });
         setAuth(loginRes.user, loginRes.token);
       }
-      router.push('/dashboard');
+      router.push('/short-series/projects');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

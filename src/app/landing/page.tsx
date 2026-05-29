@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
 import UserDropdown from '@/components/global/UserDropdown';
 
@@ -80,7 +79,6 @@ const videoHighlights = [
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -90,14 +88,6 @@ export default function LandingPage() {
     setAuthChecked(true);
   }, []);
 
-  const handleProtectedNav = useCallback((path: string) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (useAuthStore.getState().isAuthenticated()) {
-      router.push(path);
-    } else {
-      router.push(`/login?redirect=${encodeURIComponent(path)}`);
-    }
-  }, [router]);
 
   return (
     <>
@@ -110,7 +100,7 @@ export default function LandingPage() {
           </Link>
           <div className="nav-links">
             <Link href="/landing#features">功能</Link>
-            <Link href="/dashboard">短剧工厂</Link>
+            <Link href="/short-series/projects">短剧工厂</Link>
             <Link href="/short-video/projects">视觉工厂</Link>
           </div>
           <div className="nav-right">
@@ -149,7 +139,7 @@ export default function LandingPage() {
           <Link href="/landing#features" onClick={() => setMobileMenuOpen(false)}>功能</Link>
           {authChecked && isAuthenticated() ? (
             <>
-              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>短剧工厂</Link>
+              <Link href="/short-series/projects" onClick={() => setMobileMenuOpen(false)}>短剧工厂</Link>
               <Link href="/short-video/projects" onClick={() => setMobileMenuOpen(false)}>视觉工厂</Link>
               <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>账号设置</Link>
               <button
@@ -165,7 +155,7 @@ export default function LandingPage() {
             </>
           ) : (
             <>
-              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>短剧工厂</Link>
+              <Link href="/short-series/projects" onClick={() => setMobileMenuOpen(false)}>短剧工厂</Link>
               <Link href="/short-video/projects" onClick={() => setMobileMenuOpen(false)}>视觉工厂</Link>
               <Link href="/login" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-2)' }}>登录</Link>
               <Link href="/register" className="btn btn-brand btn-sm">免费注册</Link>
@@ -187,7 +177,7 @@ export default function LandingPage() {
             顶级视频引擎，不绑定单一供应商。
           </p>
           <div className="hero-actions">
-            <Link href="/dashboard" className="btn btn-brand">
+            <Link href="/short-series/projects" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M13 6l6 6-6 6" />
@@ -258,7 +248,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="section-cta">
-            <Link href="/dashboard" className="btn btn-brand">
+            <Link href="/short-series/projects" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}>
                 <path d="M5 12h14 M12 5l7 7-7 7" />
@@ -304,7 +294,7 @@ export default function LandingPage() {
             基于 ArcReel 构建，AGPL-3.0 开源。Docker 一键部署，五分钟启动属于你自己的短剧生产线。
           </p>
           <div className="cta-actions">
-            <Link href="/dashboard" className="btn btn-brand">
+            <Link href="/short-series/projects" className="btn btn-brand">
               {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
             </Link>
             <Link href="/short-video/projects" className="btn btn-brand">
@@ -328,7 +318,7 @@ export default function LandingPage() {
             <div>
               <h4>产品</h4>
               <Link href="/landing#features">功能</Link>
-              <Link href="/dashboard">短剧工厂</Link>
+              <Link href="/short-series/projects">短剧工厂</Link>
             </div>
             <div>
               <h4>资源</h4>
