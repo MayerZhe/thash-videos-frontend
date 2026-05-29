@@ -3,28 +3,28 @@
 import { useAppStore } from '@/stores/app';
 import type { PipelineMode } from '@/lib/types';
 
-const MODES: { key: PipelineMode; label: string }[] = [
-  { key: 'standard', label: '标准模式' },
-  { key: 'asset-based', label: '素材驱动' },
-  { key: 'digital-human', label: '数字人' },
-  { key: 'i2v', label: '图生视频' },
-  { key: 'action-transfer', label: '动作迁移' },
+const MODES: { key: PipelineMode; icon: string; label: string; badge?: string }[] = [
+  { key: 'standard', icon: 'S', label: '标准模式', badge: '默认' },
+  { key: 'asset-based', icon: 'A', label: '素材驱动' },
+  { key: 'digital-human', icon: 'D', label: '数字人' },
+  { key: 'i2v', icon: 'I', label: '图生视频' },
+  { key: 'action-transfer', icon: 'T', label: '动作迁移' },
 ];
 
 export default function PipelineModeSelector() {
   const { activePipeline, setActivePipeline } = useAppStore();
 
   return (
-    <div className="flex gap-2 px-8 py-3 border-b border-border-soft bg-bg overflow-x-auto">
+    <div className="pipeline-mode-bar">
       {MODES.map((mode) => (
         <button
           key={mode.key}
+          className={`pipeline-mode-tab ${activePipeline === mode.key ? 'active' : ''}`}
           onClick={() => setActivePipeline(mode.key)}
-          className={`badge cursor-pointer whitespace-nowrap transition-all ${
-            activePipeline === mode.key ? 'badge-accent' : 'badge-muted'
-          }`}
         >
+          <span className="mode-icon">{mode.icon}</span>
           {mode.label}
+          {mode.badge && <span className="mode-badge">{mode.badge}</span>}
         </button>
       ))}
     </div>

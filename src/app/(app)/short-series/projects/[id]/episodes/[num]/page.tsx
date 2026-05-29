@@ -7,7 +7,10 @@ import { versionsApi, episodesApi, pipelineApi, BASE_URL } from '@/lib/api';
 import { useToast } from '@/components/global/Toast';
 import PipelineSidebar, { type AgentStatus } from '@/components/content-creation/PipelineSidebar';
 import PipelineModeSelector from '@/components/content-creation/PipelineModeSelector';
+import Topbar from '@/components/content-creation/Topbar';
 import RightPanel from '@/components/content-creation/RightPanel';
+import AgentRuntime from '@/components/content-creation/AgentRuntime';
+import type { AgentTurn } from '@/components/content-creation/AgentRuntime';
 import DrawMode from '@/components/content-creation/DrawMode';
 import VersionHistoryDrawer from '@/components/content-creation/VersionHistoryDrawer';
 import DiffOverlay from '@/components/content-creation/DiffOverlay';
@@ -36,7 +39,7 @@ export default function ContentCreationPage() {
   const {
     activeStage, setActiveStage,
     activeTheme, setActiveTheme,
-    rightPanelOpen, toggleRightPanel, setRightPanelOpen,
+    rightPanelOpen, setRightPanelOpen,
   } = useAppStore();
 
   const { toast } = useToast();
@@ -46,7 +49,6 @@ export default function ContentCreationPage() {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [episodeState, setEpisodeState] = useState<PipelineState | null>(null);
 
-  // Load versions for this project
   const loadVersions = useCallback(async () => {
     setVersionsLoading(true);
     try {
@@ -59,13 +61,12 @@ export default function ContentCreationPage() {
     }
   }, [projectId]);
 
-  // Load episode pipeline state
   const loadEpisodeState = useCallback(async () => {
     try {
       const ep = await episodesApi.get(projectId, episodeNum);
       setEpisodeState(ep.pipeline_state as PipelineState || null);
     } catch {
-      // Episode may not exist yet — ignore
+      // Episode may not exist yet
     }
   }, [projectId, episodeNum]);
 
@@ -74,21 +75,16 @@ export default function ContentCreationPage() {
     loadEpisodeState();
   }, [loadVersions, loadEpisodeState]);
 
-  // Compute version counts from real data
   const versionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const v of versions) {
       const stage = v.pipeline_stage;
-      if (stage) {
-        counts[stage] = (counts[stage] || 0) + 1;
-      }
+      if (stage) counts[stage] = (counts[stage] || 0) + 1;
     }
     return counts;
   }, [versions]);
 
-  // Compute stats from episode state or versions
   const computedStats = useMemo(() => {
-    // These come from pipeline_state JSONB when it exists
     const state = episodeState as Record<string, unknown> | null;
     return {
       charCount: state?.character_management ? 8 : 0,
@@ -104,8 +100,6 @@ export default function ContentCreationPage() {
   const [precheckLoading, setPrecheckLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
-
-  // ─── Pipeline handlers ───
 
   const handlePrecheck = useCallback(async () => {
     setPrecheckLoading(true);
@@ -135,7 +129,6 @@ export default function ContentCreationPage() {
       setShowPrecheck(false);
       setPrecheckResult(null);
       toast(`任务已提交: ${result.job_id}`);
-      // Set active job immediately for status polling
       setActiveJob({
         job_id: result.job_id,
         status: 'queued',
@@ -144,7 +137,6 @@ export default function ContentCreationPage() {
         total_stages: 11,
         progress_percent: 0,
       });
-      // Start SSE stream for this job
       setUrlJobId(result.job_id);
     } catch (err) {
       toast(`提交失败: ${(err as Error).message}`);
@@ -193,10 +185,11 @@ export default function ContentCreationPage() {
     }
   }, [projectId, episodeNum, toast]);
 
-  // Agent dialog
+  // ─── Agent runtime state ───
   const [agentDialogOpen, setAgentDialogOpen] = useState(false);
-  const [agentMessages, setAgentMessages] = useState<Array<{ role: 'user' | 'ai'; text: string; thinking?: string; tools?: string[]; edits?: string }>>([]);
-  const [agentInput, setAgentInput] = useState('');
+  const [agentTurns, setAgentTurns] = useState<AgentTurn[]>([]);
+  const [agentMessages, setAgentMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; timestamp: string }>>([]);
+  const [agentStreaming, setAgentStreaming] = useState(false);
 
   // SSE pipeline progress
   const [agentStates, setAgentStates] = useState<Record<string, AgentStatus>>({});
@@ -211,7 +204,7 @@ export default function ContentCreationPage() {
   // Version history drawer
   const [versionDrawerOpen, setVersionDrawerOpen] = useState(false);
 
-  // Current job ID from URL params (shared between SSE and TweakPanel)
+  // Current job ID from URL params
   const [urlJobId, setUrlJobId] = useState('');
 
   // Diff overlay
@@ -223,9 +216,7 @@ export default function ContentCreationPage() {
 
   // Esc key to exit draw mode
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && drawMode) {
-      setDrawMode(false);
-    }
+    if (e.key === 'Escape' && drawMode) setDrawMode(false);
   }, [drawMode]);
 
   useEffect(() => {
@@ -233,7 +224,7 @@ export default function ContentCreationPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // SSE subscription for real-time pipeline progress
+  // SSE subscription
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const jobId = searchParams.get('job_id') || urlJobId;
@@ -246,9 +237,7 @@ export default function ContentCreationPage() {
     (async () => {
       try {
         const sseHeaders: Record<string, string> = { 'Accept': 'text/event-stream' };
-        if (token) {
-          sseHeaders['Authorization'] = `Bearer ${token}`;
-        }
+        if (token) sseHeaders['Authorization'] = `Bearer ${token}`;
         const response = await fetch(`${BASE_URL}/api/v1/pipeline/stream/${jobId}`, {
           signal: controller.signal,
           headers: sseHeaders,
@@ -276,7 +265,6 @@ export default function ContentCreationPage() {
                 const stage: string | undefined = parsed.stage;
                 const progressPercent: number | undefined = parsed.progress_percent ?? parsed.data?.progress_percent;
 
-                // Update active job status
                 setActiveJob((prev) => {
                   if (!prev || prev.job_id !== jobId) {
                     if (eventType === 'job_completed' || eventType === 'job_failed') return prev;
@@ -293,8 +281,7 @@ export default function ContentCreationPage() {
                   return {
                     ...prev,
                     status: eventType === 'job_completed' ? 'completed' :
-                            eventType === 'job_failed' ? 'failed' :
-                            'running',
+                            eventType === 'job_failed' ? 'failed' : 'running',
                     stage: (stage as StageLabel) || prev.stage,
                     progress_percent: progressPercent ?? prev.progress_percent,
                     current_agent: stage || prev.current_agent,
@@ -314,20 +301,14 @@ export default function ContentCreationPage() {
                 const status = eventType ? statusMap[eventType] : undefined;
                 if (status) {
                   setAgentStates((prev) => ({ ...prev, [stage]: status }));
-                  if (eventType === 'review_point_reached') {
-                    setReviewPointActive(true);
-                  }
+                  if (eventType === 'review_point_reached') setReviewPointActive(true);
                 }
-              } catch {
-                // Ignore parse errors on individual events
-              }
+              } catch { /* parse error */ }
             }
           }
         }
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('SSE stream error:', err);
-        }
+        if ((err as Error).name !== 'AbortError') console.error('SSE stream error:', err);
       }
     })();
 
@@ -338,40 +319,63 @@ export default function ContentCreationPage() {
     setActiveStage(stageIndex);
   };
 
-  const handleSendAgent = () => {
-    if (!agentInput.trim()) return;
-    const msg = agentInput.trim();
-    setAgentMessages((prev) => [...prev, { role: 'user', text: msg }]);
-    setAgentInput('');
+  // ─── Agent send handler ───
+  const handleAgentSend = (text: string) => {
+    const ts = new Date().toISOString();
+    const userMsg = { id: `u-${Date.now()}`, role: 'user' as const, content: text, timestamp: ts };
+    setAgentMessages((prev) => [...prev, userMsg]);
+    setAgentStreaming(true);
 
-    // Simulate AI response
+    // Simulate agent turn
+    const turnId = `turn-${Date.now()}`;
+    const newTurn: AgentTurn = {
+      id: turnId,
+      statusLabel: '分析中',
+      statusState: 'active',
+      thinking: [{
+        id: `think-${Date.now()}`,
+        label: `分析 "${text.slice(0, 30)}${text.length > 30 ? '...' : ''}"`,
+        content: `1. 解析用户意图\n2. 检索相关上下文\n3. 评估影响范围\n4. 生成执行计划`,
+        open: false,
+      }],
+      toolCalls: [{
+        id: `tc-${Date.now()}`,
+        name: 'Read: content_script.md',
+        iconType: 'read',
+        status: 'complete',
+        body: '读取当前剧集剧本内容...\n找到 3 个场景, 12 个镜头定义',
+        open: false,
+      }],
+      fileOps: [
+        { op: 'modified', path: 'episode_script.txt', detail: '+2/-1 lines' },
+      ],
+      producedFiles: [
+        { name: 'episode_script_v2.txt', path: '/versions/episode_script_v2.txt' },
+      ],
+      assistantText: `已分析你的请求「${text}」。基于当前项目上下文，我建议进行相应的调整。具体修改已应用到 episode_script.txt。`,
+    };
+
     setTimeout(() => {
+      newTurn.statusLabel = '完成';
+      newTurn.statusState = 'done';
+      setAgentTurns((prev) => [...prev, newTurn]);
       setAgentMessages((prev) => [...prev, {
-        role: 'ai',
-        text: `收到，我来分析「${msg}」。这涉及${msg.includes('角色') ? '角色管理' : msg.includes('分镜') ? '分镜设计' : msg.includes('对白') ? '对白优化' : '项目内容'}。建议进行以下调整...`,
-        thinking: `1. 分析请求上下文\n2. 检索相关数据\n3. 评估影响范围\n4. 生成建议方案`,
-        tools: ['Read: episode_script.txt', 'Grep: 关键词匹配', 'Edit: 修改目标段落'],
-        edits: 'episode_script.txt (+2/-1)',
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: newTurn.assistantText || '完成。',
+        timestamp: new Date().toISOString(),
       }]);
-    }, 800);
+      setAgentStreaming(false);
+    }, 1500);
   };
 
   // Map stage index to pipeline_state key
   const stageDataKeys = [
-    'source_content',
-    'script_rewrite',
-    'character_management',
-    'scene_management',
-    'storyboard',
-    'image_generation',
-    'video_generation',
-    'tts_dubbing',
-    'shot_composition',
-    'episode_merge',
-    'export',
+    'source_content', 'script_rewrite', 'character_management', 'scene_management',
+    'storyboard', 'image_generation', 'video_generation', 'tts_dubbing',
+    'shot_composition', 'episode_merge', 'export',
   ] as const;
 
-  // Render active stage with pipeline_state data
   const renderStage = () => {
     const state = episodeState as Record<string, unknown> | null;
     const stageData = state?.[stageDataKeys[activeStage]] as Record<string, unknown> | undefined;
@@ -392,106 +396,23 @@ export default function ContentCreationPage() {
     }
   };
 
+  const activeStageLabel = STAGE_NAMES[stageDataKeys[activeStage]] || '';
+
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
-      {/* Top bar */}
-      <div className="content-topbar flex items-center justify-between px-6 py-2 border-b border-border-soft bg-bg">
-        <div className="flex items-center gap-3 content-topbar-left">
-          <button
-            onClick={() => router.push(`/short-series/projects/${projectId}`)}
-            className="text-sm text-muted hover:text-fg-2 flex items-center gap-1 flex-shrink-0"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            <span className="content-topbar-back-label">返回</span>
-          </button>
-          <span className="text-sm text-fg font-medium content-topbar-title">
-            <span className="font-mono text-accent">E{episodeNum < 10 ? '0' : ''}{episodeNum}</span>
-            <span className="content-topbar-pid"> 项目 {projectId}</span>
-          </span>
-          <span className="text-xs text-muted content-topbar-stats">
-            角色:{computedStats.charCount || '—'} 场景:{computedStats.sceneCount || '—'} 镜头:{computedStats.shotCount || '—'}
-          </span>
-        </div>
+    <div className="flex flex-col h-screen overflow-hidden">
+      {/* Studio Topbar — prototype exact */}
+      <Topbar
+        projectTitle={projectId}
+        episodeNum={episodeNum}
+        stageLabel={activeStageLabel}
+        stageProgress={activeJob?.status === 'running' ? `${activeJob.progress_percent || 0}%` : undefined}
+      />
 
-        <div className="flex items-center gap-2 content-topbar-actions">
-          {/* Draw mode toggle */}
-          <button
-            className={`btn btn-ghost btn-sm text-xs ${drawMode ? 'text-accent' : ''}`}
-            onClick={() => setDrawMode(!drawMode)}
-          >
-            绘制
-          </button>
-
-          {/* Version history toggle */}
-          <button
-            className="btn btn-ghost btn-sm text-xs"
-            onClick={() => setVersionDrawerOpen(true)}
-          >
-            版本
-          </button>
-
-          {/* Right panel toggle */}
-          <button
-            className={`btn btn-ghost btn-sm text-xs ${rightPanelOpen ? 'text-accent' : ''}`}
-            onClick={toggleRightPanel}
-          >
-            {rightPanelOpen ? '隐藏面板' : '显示面板'}
-          </button>
-
-          {/* Agent dialog toggle */}
-          <button
-            className="btn btn-ghost btn-sm text-xs"
-            onClick={() => setAgentDialogOpen(true)}
-          >
-            Agent
-          </button>
-
-          {/* Phase 2: Tweak panel toggle */}
-          <button
-            className={`btn btn-ghost btn-sm text-xs ${tweakPanelOpen ? 'text-accent' : ''}`}
-            onClick={() => setTweakPanelOpen(!tweakPanelOpen)}
-          >
-            微调
-          </button>
-
-          {/* Pipeline job status bar */}
-          {activeJob && (
-            <div className="flex items-center gap-2 pl-3 border-l border-border-soft">
-              <span className={`badge text-[10px] px-1.5 py-0 ${
-                activeJob.status === 'running' ? 'badge-accent' :
-                activeJob.status === 'completed' ? 'badge-success' :
-                activeJob.status === 'failed' ? 'badge-danger' :
-                activeJob.status === 'cancelled' ? 'badge-muted' :
-                'badge-warn'
-              }`}>
-                {activeJob.status === 'queued' ? '排队中' :
-                 activeJob.status === 'running' ? `运行中 ${activeJob.progress_percent || 0}%` :
-                 activeJob.status === 'completed' ? '已完成' :
-                 activeJob.status === 'failed' ? '失败' :
-                 activeJob.status === 'cancelled' ? '已取消' : activeJob.status}
-              </span>
-              {activeJob.status === 'running' && (
-                <button className="btn btn-ghost btn-sm text-xs text-danger" onClick={handleCancel}>
-                  取消
-                </button>
-              )}
-              {activeJob.status === 'failed' && (
-                <button className="btn btn-brand btn-sm text-xs" onClick={handleRetry}>
-                  重试
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Pipeline mode selector */}
+      {/* Pipeline mode bar */}
       <PipelineModeSelector />
 
-      {/* Three-panel workspace */}
-      <div className="content-workspace flex flex-1 overflow-hidden">
+      {/* Three-panel workspace — studio-body pattern */}
+      <div className="studio-body">
         {/* Left: Pipeline sidebar */}
         <PipelineSidebar
           onStageClick={handleStageClick}
@@ -503,65 +424,16 @@ export default function ContentCreationPage() {
           precheckLoading={precheckLoading}
         />
 
-        {/* Center: Main canvas */}
-        <div className="content-canvas flex-1 overflow-hidden bg-bg">
-          <div className="h-full">
+        {/* Center: Main canvas with stage panels */}
+        <div className="main">
+          <div className="content-panel active">
             {renderStage()}
           </div>
         </div>
 
-        {/* Right: Theme/Inspect/Comments panel */}
+        {/* Right: Collapsible panel rail */}
         <RightPanel />
       </div>
-
-      <style jsx global>{`
-        /* ─── Content creation workspace responsive layout ─── */
-        @media (max-width: 767px) {
-          .content-workspace {
-            flex-direction: column;
-          }
-          .content-canvas {
-            order: 1;
-            flex: 1;
-            min-height: 0;
-          }
-          /* Compact top bar */
-          .content-topbar {
-            padding: 0 var(--space-3);
-            flex-wrap: wrap;
-            gap: var(--space-2);
-          }
-          .content-topbar-left {
-            flex: 1;
-            min-width: 0;
-          }
-          .content-topbar-back-label {
-            display: none;
-          }
-          .content-topbar-title {
-            font-size: var(--text-xs);
-          }
-          .content-topbar-pid {
-            display: none;
-          }
-          .content-topbar-stats {
-            display: none;
-          }
-          .content-topbar-actions {
-            flex-wrap: wrap;
-          }
-          .content-topbar-actions .btn {
-            min-height: 36px;
-            padding: var(--space-1) var(--space-2);
-          }
-        }
-
-        @media (max-width: 1023px) {
-          .content-topbar-stats {
-            display: none;
-          }
-        }
-      `}</style>
 
       {/* ── Draw Mode ── */}
       <DrawMode active={drawMode} onClose={() => setDrawMode(false)} />
@@ -619,36 +491,28 @@ export default function ContentCreationPage() {
                 <p className="text-sm text-muted text-center py-8">加载中...</p>
               ) : (
                 <div className="flex flex-col gap-4">
-                  {/* Cost estimate */}
                   <div className="flex justify-between items-center py-2 border-b border-border-soft">
                     <span className="text-sm text-muted">预估成本</span>
                     <span className="text-sm font-mono text-fg">
                       ¥{(precheckResult.estimated_cost_cents / 100).toFixed(2)}
                     </span>
                   </div>
-
-                  {/* Duration */}
                   <div className="flex justify-between items-center py-2 border-b border-border-soft">
                     <span className="text-sm text-muted">预估耗时</span>
                     <span className="text-sm font-mono text-fg">
                       {Math.ceil(precheckResult.estimated_duration_seconds / 60)} 分钟
                     </span>
                   </div>
-
-                  {/* Feasibility */}
                   <div className="flex justify-between items-center py-2 border-b border-border-soft">
                     <span className="text-sm text-muted">可行性</span>
                     <span className={`badge text-[10px] px-1.5 py-0 ${
                       precheckResult.feasibility === 'high' ? 'badge-success' :
-                      precheckResult.feasibility === 'medium' ? 'badge-warn' :
-                      'badge-danger'
+                      precheckResult.feasibility === 'medium' ? 'badge-warn' : 'badge-danger'
                     }`}>
                       {precheckResult.feasibility === 'high' ? '高' :
                        precheckResult.feasibility === 'medium' ? '中' : '低'}
                     </span>
                   </div>
-
-                  {/* Recommended stages */}
                   {precheckResult.recommended_stages && precheckResult.recommended_stages.length > 0 && (
                     <div className="py-2 border-b border-border-soft">
                       <span className="text-sm text-muted mb-2 block">推荐阶段</span>
@@ -661,8 +525,6 @@ export default function ContentCreationPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Warnings */}
                   {precheckResult.warnings && precheckResult.warnings.length > 0 && (
                     <div className="p-3 bg-[var(--warn)]/10 border border-[var(--warn)]/20 rounded-sm">
                       <span className="text-xs font-medium text-warn mb-1.5 block">注意事项</span>
@@ -689,7 +551,7 @@ export default function ContentCreationPage() {
         </div>
       )}
 
-      {/* ── Phase 2: TweakPanel Floating ── */}
+      {/* ── TweakPanel Floating ── */}
       {tweakPanelOpen && (
         <div className="fixed inset-0 z-40 flex justify-end pointer-events-none" style={{ top: 56 }}>
           <div className="pointer-events-auto w-[380px] max-h-[calc(100vh-56px)] overflow-y-auto border-l border-border-soft bg-surface shadow-xl">
@@ -698,90 +560,21 @@ export default function ContentCreationPage() {
               <button onClick={() => setTweakPanelOpen(false)} className="text-muted hover:text-fg">✕</button>
             </div>
             <div className="p-3">
-              <TweakPanel
-                jobId={urlJobId}
-                onApply={() => {}}
-              />
+              <TweakPanel jobId={urlJobId} onApply={() => {}} />
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Agent Dialog ── */}
-      {agentDialogOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setAgentDialogOpen(false); }}>
-          <div className="modal-box !max-w-[700px] !max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display text-lg font-normal text-fg">
-                Claude Code · Agent <span className="text-muted text-sm">项目 · E{episodeNum < 10 ? '0' : ''}{episodeNum}</span>
-              </h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setAgentDialogOpen(false)}>✕</button>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-[300px] max-h-[500px]">
-              {agentMessages.length === 0 && (
-                <p className="text-sm text-muted text-center py-8">
-                  输入指令，AI Agent 将帮您编辑剧本、优化角色、调整分镜...
-                </p>
-              )}
-              {agentMessages.map((m, i) => (
-                <div key={i} className={`${m.role === 'user' ? 'text-right' : ''}`}>
-                  {m.role === 'user' ? (
-                    <div className="inline-block bg-accent/10 border border-[color-mix(in_oklab,var(--accent)_20%,transparent)] rounded-sm px-4 py-2 text-sm text-fg max-w-[80%] text-left">
-                      {m.text}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {/* Thinking */}
-                      {m.thinking && (
-                        <details className="bg-bg border border-border-soft rounded-sm p-3">
-                          <summary className="text-xs text-muted cursor-pointer">思考过程</summary>
-                          <pre className="text-xs text-muted mt-2 whitespace-pre-wrap font-mono">{m.thinking}</pre>
-                        </details>
-                      )}
-                      {/* Tool calls */}
-                      {m.tools && (
-                        <div className="bg-bg border border-border-soft rounded-sm p-3">
-                          <p className="text-[10px] text-meta uppercase mb-1">工具调用</p>
-                          {m.tools.map((t, j) => (
-                            <p key={j} className="text-xs text-fg-2 font-mono">{t}</p>
-                          ))}
-                        </div>
-                      )}
-                      {/* Edits */}
-                      {m.edits && (
-                        <div className="bg-bg border border-border-soft rounded-sm p-3">
-                          <p className="text-[10px] text-meta uppercase mb-1">文件操作</p>
-                          <p className="text-xs text-fg-2 font-mono">{m.edits}</p>
-                        </div>
-                      )}
-                      {/* Response */}
-                      <div className="text-sm text-fg-2 leading-relaxed bg-surface border border-border rounded-sm p-4">
-                        {m.text}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Input */}
-            <div className="flex gap-2 pt-4 border-t border-border-soft">
-              <input
-                type="text"
-                placeholder="输入指令..."
-                value={agentInput}
-                onChange={(e) => setAgentInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSendAgent(); }}
-                className="flex-1 text-sm bg-bg border border-border rounded-sm px-4 py-2.5 text-fg-2 outline-none focus:border-accent placeholder:text-meta"
-                autoFocus
-              />
-              <button className="btn btn-brand" onClick={handleSendAgent}>发送</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Agent Runtime Dialog ── */}
+      <AgentRuntime
+        open={agentDialogOpen}
+        onClose={() => setAgentDialogOpen(false)}
+        turns={agentTurns}
+        messages={agentMessages}
+        onSend={handleAgentSend}
+        isStreaming={agentStreaming}
+      />
     </div>
   );
 }
@@ -813,104 +606,102 @@ function ExportStage() {
           label: step,
           time: new Date().toLocaleTimeString(),
         }]);
-        if (i === steps.length - 1) {
-          setExporting(false);
-        }
+        if (i === steps.length - 1) setExporting(false);
       }, (i + 1) * 800);
     });
   };
 
   return (
     <div className="flex flex-col h-full p-8 overflow-y-auto">
-      <h3 className="text-lg font-normal text-fg mb-6">导出</h3>
-
-      {/* Stats cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          { label: '镜头数', value: '12' },
-          { label: '总时长', value: '2m 15s' },
-          { label: '格式', value: exportFormat === 'mp4' ? 'MP4' : '剪映草稿' },
-          { label: '预估费用', value: '¥8.40' },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-surface border border-border rounded-lg p-4">
-            <p className="text-xs text-muted mb-1">{stat.label}</p>
-            <p className="text-lg font-medium text-fg">{stat.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Format selector */}
-      <div className="flex gap-2 mb-6">
-        {(['mp4', 'jianying'] as const).map((fmt) => (
-          <button
-            key={fmt}
-            onClick={() => setExportFormat(fmt)}
-            className={`badge cursor-pointer ${exportFormat === fmt ? 'badge-accent' : 'badge-muted'}`}
-          >
-            {fmt === 'mp4' ? 'MP4' : '剪映草稿'}
-          </button>
-        ))}
-      </div>
-
-      {/* Progress */}
-      {exporting && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted">导出进度</span>
-            <span className="text-xs text-accent font-mono">{progress}%</span>
-          </div>
-          <div className="h-2 bg-border-soft rounded-pill overflow-hidden">
-            <div
-              className="h-full bg-accent rounded-pill transition-all duration-500 ease-standard"
-              style={{ width: `${progress}%` }}
-            />
+      <div className="step-toolbar">
+        <div className="toolbar-left">
+          <div className="step-indicator">
+            <span className="step-num">11</span>
+            <span className="step-name">导出</span>
           </div>
         </div>
-      )}
-
-      {/* Export button */}
-      <button
-        className="btn btn-brand mb-6 w-fit"
-        onClick={handleExport}
-        disabled={exporting}
-      >
-        {exporting ? '导出中...' : '开始导出'}
-      </button>
-
-      {/* Cost summary table */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium text-fg mb-3">费用明细</h4>
-        <table>
-          <thead>
-            <tr>
-              <th>供应商</th><th>类型</th><th>调用次数</th><th>费用</th><th>占比</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Seedream</td><td>图片</td><td>12</td><td>¥3.60</td><td>42.9%</td></tr>
-            <tr><td>Seedance</td><td>视频</td><td>12</td><td>¥4.20</td><td>50.0%</td></tr>
-            <tr><td>MiniMax</td><td>TTS</td><td>8</td><td>¥0.60</td><td>7.1%</td></tr>
-          </tbody>
-        </table>
+        <div className="toolbar-right">
+          <span className="char-count">最终输出</span>
+        </div>
       </div>
 
-      {/* Progress event log */}
-      {events.length > 0 && (
+      <div className="export-dashboard">
+        <div className="export-stats-row">
+          {[
+            { label: '镜头数', value: '12' },
+            { label: '总时长', value: '2m 15s' },
+            { label: '格式', value: exportFormat === 'mp4' ? 'MP4' : '剪映草稿' },
+            { label: '预估费用', value: '¥8.40' },
+          ].map((stat) => (
+            <div key={stat.label} className="export-stat-card">
+              <p className="es-value">{stat.value}</p>
+              <p className="es-label">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {(['mp4', 'jianying'] as const).map((fmt) => (
+            <button
+              key={fmt}
+              onClick={() => setExportFormat(fmt)}
+              className={`badge cursor-pointer ${exportFormat === fmt ? 'badge-accent' : 'badge-muted'}`}
+            >
+              {fmt === 'mp4' ? 'MP4 视频' : '剪映草稿'}
+            </button>
+          ))}
+        </div>
+
+        {exporting && (
+          <div className="export-progress">
+            <div className="bar">
+              <div className="fill" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="label">{progress}%</p>
+          </div>
+        )}
+
+        <button
+          className="btn btn-brand"
+          onClick={handleExport}
+          disabled={exporting}
+          style={{ alignSelf: 'flex-start' }}
+        >
+          {exporting ? '导出中...' : '开始导出'}
+        </button>
+
         <div>
-          <h4 className="text-sm font-medium text-fg mb-3">事件日志</h4>
-          <div className="space-y-1">
+          <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--fg)', marginBottom: '12px' }}>费用明细</h4>
+          <table className="cost-table">
+            <thead>
+              <tr>
+                <th>供应商</th><th>类型</th><th>调用次数</th><th>费用</th><th>占比</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Seedream</td><td>图片</td><td className="mono">12</td><td className="mono">¥3.60</td><td className="mono">42.9%</td></tr>
+              <tr><td>Seedance</td><td>视频</td><td className="mono">12</td><td className="mono">¥4.20</td><td className="mono">50.0%</td></tr>
+              <tr><td>MiniMax</td><td>TTS</td><td className="mono">8</td><td className="mono">¥0.60</td><td className="mono">7.1%</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        {events.length > 0 && (
+          <div className="progress-events">
             {events.map((evt, i) => (
-              <div key={i} className="flex items-center gap-3 text-xs py-1">
-                <span className={`w-1.5 h-1.5 rounded-pill flex-shrink-0 ${
-                  evt.type === 'done' ? 'bg-success' : evt.type === 'frame' ? 'bg-accent' : 'bg-muted'
-                }`} />
-                <span className="text-fg-2">{evt.label}</span>
-                <span className="text-meta ml-auto">{evt.time}</span>
+              <div key={i} className="progress-event">
+                <span className={`pe-icon ${evt.type === 'done' ? 'done' : evt.type === 'frame' ? 'frame' : 'err'}`}>
+                  {evt.type === 'done' ? '✓' : evt.type === 'frame' ? '●' : '✕'}
+                </span>
+                <div className="pe-body">
+                  <span className="pe-label">{evt.label}</span>
+                  <span className="pe-extra">{evt.time}</span>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -47,7 +47,8 @@ export default function AssetLibraryPage() {
       const data = await assetsApi.list(projectId);
       setAssets(data || []);
     } catch (err) {
-      setError((err as Error).message);
+      console.error('[AssetsPage] loadAssets error:', err);
+      setError((err as Error).message || String(err));
       setAssets([]);
     } finally {
       setLoading(false);

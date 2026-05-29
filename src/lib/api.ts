@@ -224,6 +224,19 @@ const _episodesApi = {
   get: (projectId: string, episodeNum: number) =>
     apiGet<Episode>(`/api/v1/projects/${projectId}/episodes/${episodeNum}`),
 
+  getSummary: (projectId: string, episodeNum: number) =>
+    apiGet<{
+      project_id: string;
+      project_title: string;
+      episode_number: number;
+      episode_title: string | null;
+      current_stage: string;
+      current_stage_label: string;
+      stage_progress: Array<{ stage: string; label: string; status: string; version_count: number }>;
+      stats: Record<string, number>;
+      theme: string | null;
+    }>(`/api/v1/projects/${projectId}/episodes/${episodeNum}/summary`),
+
   create: (projectId: string, data: { episode_number: number; title?: string }) =>
     apiPost<Episode>(`/api/v1/projects/${projectId}/episodes`, data),
 

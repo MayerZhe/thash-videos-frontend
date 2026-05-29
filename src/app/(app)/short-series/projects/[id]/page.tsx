@@ -129,8 +129,10 @@ export default function ProjectDetailPage() {
     setProjectError(null);
     try {
       const proj = await projectsApi.get(projectId);
+      useAppStore.getState().setActiveProject(projectId);
       setProject({ title: proj.title, style: proj.style || '', characters: 0, scenes: 0 });
     } catch (err) {
+      useAppStore.getState().setActiveProject(null);
       setProjectError((err as Error).message);
     } finally {
       setProjectLoading(false);
@@ -165,11 +167,10 @@ export default function ProjectDetailPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Sync activeProjectId to store so sidebar navigation works
+  // Cleanup activeProjectId on unmount so sidebar navigation resets
   useEffect(() => {
-    useAppStore.getState().setActiveProject(projectId);
     return () => { useAppStore.getState().setActiveProject(null); };
-  }, [projectId]);
+  }, []);
 
   /* ── Derived ── */
   const counts = {

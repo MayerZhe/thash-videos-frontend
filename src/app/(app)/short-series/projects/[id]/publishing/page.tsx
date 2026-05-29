@@ -66,8 +66,9 @@ export default function PublishingPage() {
       ]);
       setChannels(ch);
       setQueue(q);
-    } catch {
+    } catch (err) {
       // Stub backend — show friendly placeholder
+      console.error('[PublishingPage] loadData error:', err);
       setChannels(null);
       setQueue(null);
     } finally {

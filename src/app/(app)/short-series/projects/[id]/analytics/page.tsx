@@ -66,8 +66,9 @@ export default function AnalyticsPage() {
       setSummary(s);
       setSuppliers(sup);
       setApiCalls(ac);
-    } catch {
+    } catch (err) {
       // Stub backend — show friendly empty state
+      console.error('[AnalyticsPage] loadData error:', err);
       setSummary(null);
       setSuppliers(null);
       setApiCalls(null);
