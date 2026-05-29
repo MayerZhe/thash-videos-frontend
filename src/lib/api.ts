@@ -89,7 +89,7 @@ async function request<T>(
       useAuthStore.getState().clearAuth();
       sessionStorage.setItem('thash_session_expired', '1');
       const currentPath = window.location.pathname;
-      const publicPaths = ['/', '/landing', '/login', '/register', '/verify-email', '/auth', '/video', '/short-video'];
+      const publicPaths = ['/', '/landing', '/login', '/register', '/verify-email', '/auth', '/video', '/short-video', '/dashboard'];
       const isPublicPath = publicPaths.some(p => currentPath === p || (p !== '/' && currentPath.startsWith(p + '/')));
       if (!isPublicPath) {
         window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
