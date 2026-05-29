@@ -14,9 +14,18 @@ const PLAN_LABELS: Record<string, string> = {
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const activeProjectId = useAppStore((s) => s.activeProjectId);
+  const storeProjectId = useAppStore((s) => s.activeProjectId);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const closeSidebar = useAppStore((s) => s.closeSidebar);
+
+  // Derive projectId from URL as fallback when store has none set.
+  // Pattern: /projects/{id}/... → extract id from URL segment.
+  const urlProjectId = (() => {
+    const m = pathname.match(/^\/projects\/([^/]+)/);
+    return m ? m[1] : null;
+  })();
+  const activeProjectId = storeProjectId || urlProjectId;
+
   const p = (path: string) =>
     activeProjectId ? `/projects/${activeProjectId}${path}` : '#';
   const user = useAuthStore((s) => s.user);
@@ -69,8 +78,8 @@ export default function AppSidebar() {
     <aside className="app-sidebar" data-sidebar-open={sidebarOpen}>
       <div className="sidebar-brand-row">
         <Link href="/landing" className="sidebar-brand">
-          <img src="/logo.png" className="logo" alt="Thash.videos" />
-          Thash.videos
+          <img src="/logo.png" className="logo" alt="videos.thash" />
+          videos.thash
         </Link>
         <button
           className="sidebar-close-btn"
@@ -88,10 +97,25 @@ export default function AppSidebar() {
         {navItems.map((item) => {
           const needsProject = 'needsProject' in item;
           const disabled = needsProject && !activeProjectId;
-          const href = disabled ? '/dashboard' : item.href;
+          const href = item.href;
           const isActive = href !== '#' && href !== '/dashboard'
             ? (pathname === href || (href !== '/' && pathname.startsWith(href + '/')))
             : pathname === href;
+
+          if (disabled) {
+            return (
+              <span
+                key={item.label}
+                className="sidebar-nav-disabled"
+                title="请先选择或创建一个项目"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d={item.svgPath} />
+                </svg>
+                {item.label}
+              </span>
+            );
+          }
 
           return (
             <Link
@@ -130,7 +154,7 @@ export default function AppSidebar() {
 
       <div className="sidebar-footer">
         <Link href="/landing" className="body-sm" style={{ color: 'var(--muted)' }}>
-          关于 Thash.video
+          关于 videos.thash
         </Link>
       </div>
 
@@ -142,6 +166,18 @@ export default function AppSidebar() {
           color: var(--meta);
           text-transform: uppercase;
           letter-spacing: 0.8px;
+        }
+        .sidebar-nav-disabled {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          font-size: var(--text-sm);
+          color: var(--meta);
+          cursor: not-allowed;
+          opacity: 0.4;
+          user-select: none;
+          text-decoration: none;
         }
         .sidebar-user {
           display: flex;

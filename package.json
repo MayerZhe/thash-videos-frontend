@@ -2,7 +2,7 @@
   "name": "thash-videos",
   "version": "0.1.0",
   "private": true,
-  "description": "Thash.videos — AI短剧创作平台",
+  "description": "videos.thash — AI短剧创作平台",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

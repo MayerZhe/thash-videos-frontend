@@ -45,9 +45,9 @@ export default function VideoPage() {
             <img
               src="/logo.png"
               style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', objectFit: 'contain' }}
-              alt="Thash.videos"
+              alt="videos.thash"
             />
-            Thash.videos
+            videos.thash
           </Link>
           <div className="nav-links">
             <Link href="/landing#features">功能</Link>

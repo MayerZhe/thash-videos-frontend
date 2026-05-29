@@ -72,7 +72,7 @@ export default function RegisterPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <h2>注册 Thash.videos</h2>
+          <h2>注册 videos.thash</h2>
           <p className="body-muted">开启 AI 短剧创作之旅</p>
         </div>
 

@@ -68,7 +68,7 @@ function LoginForm() {
           </div>
         )}
         <div className="auth-header">
-          <h2>登录 Thash.videos</h2>
+          <h2>登录 videos.thash</h2>
           <p className="body-muted">AI 短剧创作平台</p>
         </div>
 

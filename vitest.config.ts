@@ -22,6 +22,9 @@ export default defineConfig({
     },
     testTimeout: 10000,
   },
+  esbuild: {
+    jsx: 'automatic',
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

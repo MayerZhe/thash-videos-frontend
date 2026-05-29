@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { projectsApi, episodesApi } from '@/lib/api';
+import { useAppStore } from '@/stores/app';
 import type { Episode as ApiEpisode, Project as ApiProject } from '@/lib/types';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -163,6 +164,12 @@ export default function ProjectDetailPage() {
   }, [projectId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Sync activeProjectId to store so sidebar navigation works
+  useEffect(() => {
+    useAppStore.getState().setActiveProject(projectId);
+    return () => { useAppStore.getState().setActiveProject(null); };
+  }, [projectId]);
 
   /* ── Derived ── */
   const counts = {

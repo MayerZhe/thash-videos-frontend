@@ -1,4 +1,4 @@
-// ─── Thash.videos 共享 TypeScript 类型 ───
+// ─── videos.thash 共享 TypeScript 类型 ───
 // Based on HANDOFF.md §5 Schema + interaction-spec.md §14 数据模型
 
 // ─── Pipeline & Theme ───

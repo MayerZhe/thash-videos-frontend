@@ -1,4 +1,4 @@
-// ─── API Mock Layer — Thash.videos ───
+// ─── API Mock Layer — videos.thash ───
 // Provides transparent mock data when backend is unreachable.
 // All types strictly match @/lib/types.ts to ensure type safety.
 //

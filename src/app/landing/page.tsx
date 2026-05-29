@@ -105,8 +105,8 @@ export default function LandingPage() {
       <nav className="topnav">
         <div className="container">
           <Link href="/landing" className="nav-brand">
-            <img src="/logo.png" style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', objectFit: 'contain' }} alt="Thash.videos" />
-            Thash.videos
+            <img src="/logo.png" style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', objectFit: 'contain' }} alt="videos.thash" />
+            videos.thash
           </Link>
           <div className="nav-links">
             <Link href="/landing#features">功能</Link>
@@ -320,7 +320,7 @@ export default function LandingPage() {
         <div className="container">
           <div className="footer-grid">
             <div>
-              <h4>Thash.videos</h4>
+              <h4>videos.thash</h4>
               <p className="body-muted body-sm" style={{ maxWidth: '32ch' }}>
                 把创意变成短剧——AI 驱动，全流程自动化，开源可商用。
               </p>
@@ -344,7 +344,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="footer-bottom">
-            <span>© 2026 Thash.videos · 基于 ArcReel 构建</span>
+            <span>© 2026 videos.thash · 基于 ArcReel 构建</span>
             <span>AGPL-3.0 License</span>
           </div>
         </div>

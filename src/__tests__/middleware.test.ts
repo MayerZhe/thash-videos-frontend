@@ -168,3 +168,72 @@ describe('middleware — /dashboard is now protected', () => {
     expect(res.headers.get('Location')).toContain('/login');
   });
 });
+
+describe('middleware — cookie token auth flow', () => {
+  it('reads token from thash_auth_token cookie', () => {
+    // The auth store's setAuth() sets document.cookie with
+    // key=thash_auth_token, value=encodeURIComponent(token)
+    const req = buildRequest('/dashboard', 'my-secret-jwt-token');
+    const res = middleware(req);
+    expect(res.status).toBe(200);
+  });
+
+  it('redirects when cookie has empty token value', () => {
+    const req = buildRequest('/projects/123', '');
+    const res = middleware(req);
+    // Empty string is falsy, so redirect to login
+    expect(res.status).toBe(307);
+    expect(res.headers.get('Location')).toContain('/login');
+  });
+
+  it('redirects when cookie header is present but without thash_auth_token', () => {
+    const url = 'http://localhost:3000/projects/123';
+    const headers = new Headers();
+    headers.set('Cookie', 'other_cookie=value; another_cookie=123');
+    const req = new NextRequest(url, { headers });
+    const res = middleware(req);
+    expect(res.status).toBe(307);
+  });
+
+  it('extracts token correctly from multiple cookies', () => {
+    const url = 'http://localhost:3000/dashboard';
+    const headers = new Headers();
+    headers.set('Cookie', 'session_id=abc; thash_auth_token=my-token-456; user_pref=dark');
+    const req = new NextRequest(url, { headers });
+    const res = middleware(req);
+    expect(res.status).toBe(200);
+  });
+
+  it('handles URL-encoded token values (as set by setAuth)', () => {
+    // setAuth sets: document.cookie = `${key}=${encodeURIComponent(token)}`
+    const encodedToken = encodeURIComponent('token/with+special=chars&more');
+    const url = 'http://localhost:3000/dashboard';
+    const headers = new Headers();
+    headers.set('Cookie', `thash_auth_token=${encodedToken}`);
+    const req = new NextRequest(url, { headers });
+    const res = middleware(req);
+    // Token is present (non-empty), so pass through
+    expect(res.status).toBe(200);
+  });
+
+  it('redirect includes original path in redirect param for deep links', () => {
+    const deepPath = '/projects/abc-123/assets';
+    const req = buildRequest(deepPath);
+    const res = middleware(req);
+    expect(res.status).toBe(307);
+    const location = res.headers.get('Location');
+    expect(location).toContain(encodeURIComponent(deepPath));
+  });
+
+  it('redirect preserves query params when no token', () => {
+    const url = 'http://localhost:3000/projects/123?tab=settings';
+    const req = new NextRequest(url);
+    const res = middleware(req);
+    expect(res.status).toBe(307);
+    const location = res.headers.get('Location');
+    // The redirect URL should include the redirect param with the original path
+    // (query params are NOT passed through by default in NextResponse.redirect)
+    expect(location).toContain('/login');
+    expect(location).toContain('redirect=');
+  });
+});

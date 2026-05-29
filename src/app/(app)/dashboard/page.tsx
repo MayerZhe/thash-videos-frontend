@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { projectsApi } from '@/lib/api';
+import { useAppStore } from '@/stores/app';
 import type { Project as ApiProject } from '@/lib/types';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -86,6 +87,7 @@ export default function DashboardPage() {
     : projects.filter((p) => p.status === statusFilter);
 
   function openProject(id: string) {
+    useAppStore.getState().setActiveProject(id);
     router.push(`/projects/${id}`);
   }
 
@@ -107,6 +109,7 @@ export default function DashboardPage() {
     if (!name) return;
     try {
       const p = await projectsApi.create({ title: name, style: formStyle });
+      useAppStore.getState().setActiveProject(p.id);
       setProjects((prev) => [{ id: p.id, title: p.title, style: p.style || '', episodes: 0, updated: p.updated_at, status: 'draft' }, ...prev]);
       setShowCreateModal(false);
       setFormName('');

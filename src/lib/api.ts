@@ -1,4 +1,4 @@
-// ─── API Client — Thash.videos ───
+// ─── API Client — videos.thash ───
 
 // During Cloudflare Pages build, NEXT_PUBLIC_API_URL may not be injected.
 // Always fall back to the production API URL so the app doesn't crash.

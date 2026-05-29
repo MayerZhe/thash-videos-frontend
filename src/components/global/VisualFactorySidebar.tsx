@@ -68,8 +68,8 @@ export default function VisualFactorySidebar() {
     <aside className="app-sidebar" data-sidebar-open={sidebarOpen}>
       <div className="sidebar-brand-row">
         <Link href="/landing" className="sidebar-brand">
-          <img src="/logo.png" className="logo" alt="Thash.videos" />
-          Thash.videos
+          <img src="/logo.png" className="logo" alt="videos.thash" />
+          videos.thash
         </Link>
         <button
           className="sidebar-close-btn"
@@ -169,7 +169,7 @@ export default function VisualFactorySidebar() {
 
       <div className="sidebar-footer">
         <Link href="/landing" className="body-sm" style={{ color: 'var(--muted)' }}>
-          关于 Thash.video
+          关于 videos.thash
         </Link>
       </div>
 
