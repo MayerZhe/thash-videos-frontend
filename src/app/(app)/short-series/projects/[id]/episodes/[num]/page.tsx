@@ -398,7 +398,7 @@ export default function ContentCreationPage() {
       <div className="content-topbar flex items-center justify-between px-6 py-2 border-b border-border-soft bg-bg">
         <div className="flex items-center gap-3 content-topbar-left">
           <button
-            onClick={() => router.push(`/projects/${projectId}`)}
+            onClick={() => router.push(`/short-series/projects/${projectId}`)}
             className="text-sm text-muted hover:text-fg-2 flex items-center gap-1 flex-shrink-0"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

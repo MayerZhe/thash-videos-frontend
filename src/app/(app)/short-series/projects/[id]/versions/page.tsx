@@ -345,7 +345,7 @@ export default function VersionControlPage() {
     return (
       <div className="flex flex-col h-full bg-bg">
         <div className="flex items-center gap-3 px-6 py-3 border-b border-border-soft">
-          <button onClick={() => router.push(`/projects/${projectId}`)} className="text-sm text-muted hover:text-fg-2 flex items-center gap-1">
+          <button onClick={() => router.push(`/short-series/projects/${projectId}`)} className="text-sm text-muted hover:text-fg-2 flex items-center gap-1">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
             返回
           </button>
@@ -364,7 +364,7 @@ export default function VersionControlPage() {
       <div className="flex items-center justify-between px-6 py-3 border-b border-border-soft">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push(`/projects/${projectId}`)}
+            onClick={() => router.push(`/short-series/projects/${projectId}`)}
             className="text-sm text-muted hover:text-fg-2 flex items-center gap-1"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

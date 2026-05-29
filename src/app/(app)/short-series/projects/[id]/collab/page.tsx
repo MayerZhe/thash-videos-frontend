@@ -122,8 +122,8 @@ export default function TeamCollabPage() {
               <p className="body-muted body-sm" style={{ marginTop: 4 }}>基于 git-worktree 模型的完整版本管理 — 分支、对比、恢复、标签</p>
             </div>
             <a
-              href={`/projects/${projectId}/versions`}
-              onClick={(e) => { e.preventDefault(); router.push(`/projects/${projectId}/versions`); }}
+              href={`/short-series/projects/${projectId}/versions`}
+              onClick={(e) => { e.preventDefault(); router.push(`/short-series/projects/${projectId}/versions`); }}
               className="btn btn-brand"
               style={{ whiteSpace: 'nowrap' }}
             >
