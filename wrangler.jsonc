@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/opennextjs/opennextjs-cloudflare/main/packages/cloudflare/wrangler.json",
+  "name": "thash-videos",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-05-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+}
