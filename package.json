@@ -5,13 +5,14 @@
   "description": "videos.thash — AI短剧创作平台",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npx @opennextjs/cloudflare build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "build:next": "next build"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
