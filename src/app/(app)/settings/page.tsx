@@ -483,12 +483,12 @@ export default function SettingsPage() {
                               // Optimistic update
                               setSuppliers((prev) => prev.map((s) =>
                                 (s.id || `${s.type}-${s.name}`) === (supplier.id || `${supplier.type}-${supplier.name}`)
-                                  ? { ...s, enabled: newEnabled }
+                                  ? { ...s, is_enabled: newEnabled }
                                   : s
                               ));
                               try {
                                 const supplierId = supplier.id || `${supplier.type}-${supplier.name}`;
-                                await settingsApi.updateSupplier(supplierId, { enabled: newEnabled });
+                                await settingsApi.updateSupplier(supplierId, { is_enabled: newEnabled });
                                 toast(`${supplier.name} 已${newEnabled ? '启用' : '禁用'}`);
                               } catch (err) {
                                 // Rollback on failure
