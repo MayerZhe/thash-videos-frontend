@@ -3,6 +3,14 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
+
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Free',
+  starter: 'Starter',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+};
 
 export default function AppSidebar() {
   const pathname = usePathname();
@@ -11,6 +19,7 @@ export default function AppSidebar() {
   const closeSidebar = useAppStore((s) => s.closeSidebar);
   const p = (path: string) =>
     activeProjectId ? `/projects/${activeProjectId}${path}` : '#';
+  const user = useAuthStore((s) => s.user);
 
   const navItems = [
     {
@@ -99,6 +108,26 @@ export default function AppSidebar() {
         })}
       </nav>
 
+      {user && (
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar">
+            {user.avatar_url
+              ? <img src={user.avatar_url} alt="" />
+              : <span>{user.display_name?.charAt(0)?.toUpperCase() || user.name?.charAt(0)?.toUpperCase()}</span>
+            }
+          </div>
+          <div className="sidebar-user-info">
+            <div className="sidebar-user-details">
+              <span className="sidebar-user-name">{user.display_name || user.name}</span>
+              <span className="badge badge-accent sidebar-user-plan">{PLAN_LABELS[user.plan]}</span>
+            </div>
+          </div>
+          <button className="sidebar-logout-btn" onClick={() => { useAuthStore.getState().clearAuth(); window.location.href = '/landing'; }} title="退出登录">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9"/></svg>
+          </button>
+        </div>
+      )}
+
       <div className="sidebar-footer">
         <Link href="/landing" className="body-sm" style={{ color: 'var(--muted)' }}>
           关于 Thash.video
@@ -121,6 +150,25 @@ export default function AppSidebar() {
           padding: var(--space-3) var(--space-3);
           border-top: 1px solid var(--border-soft);
           margin-top: auto;
+        }
+        .sidebar-user-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: color-mix(in oklab, var(--accent), var(--bg) 60%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: var(--text-sm);
+          font-weight: 500;
+          color: var(--accent);
+          flex-shrink: 0;
+          overflow: hidden;
+        }
+        .sidebar-user-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
         .sidebar-user-info {
           flex: 1;

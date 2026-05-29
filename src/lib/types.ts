@@ -360,12 +360,17 @@ export interface RestoreResponse {
 export interface User {
   id: string;
   email: string;
-  name: string;
+  display_name: string | null;
+  name: string;  // keep for backward compat
   avatar_url: string | null;
-  created_at: string;
+  bio?: string | null;
+  is_active: boolean;
+  is_superuser: boolean;
+  email_verified?: boolean;
   plan: 'free' | 'starter' | 'pro' | 'enterprise';
-  monthly_budget_limit: number | null;
-  project_budget_limit: number | null;
+  created_at: string;
+  monthly_budget_limit?: number | null;
+  project_budget_limit?: number | null;
 }
 
 // ─── Phase 4: Credits ───

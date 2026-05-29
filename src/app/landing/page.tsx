@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/auth';
+import UserDropdown from '@/components/global/UserDropdown';
 
 /* ═══════════════════════════════════════════════════════════════════════
  * Landing Page — 1:1 replica of Thash-video-design/landing.html
@@ -76,6 +79,25 @@ const videoHighlights = [
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // Initialize auth on mount
+  useEffect(() => {
+    useAuthStore.getState().initialize();
+    setAuthChecked(true);
+  }, []);
+
+  const handleProtectedNav = useCallback((path: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (useAuthStore.getState().isAuthenticated()) {
+      router.push(path);
+    } else {
+      router.push(`/login?redirect=${encodeURIComponent(path)}`);
+    }
+  }, [router]);
 
   return (
     <>
@@ -88,11 +110,21 @@ export default function LandingPage() {
           </Link>
           <div className="nav-links">
             <Link href="/landing#features">功能</Link>
-            <Link href="/dashboard">短剧工厂</Link>
-            <Link href="/short-video/projects">视觉工厂</Link>
+            <a href="/dashboard" onClick={handleProtectedNav('/dashboard')}>短剧工厂</a>
+            <a href="/short-video/projects" onClick={handleProtectedNav('/short-video/projects')}>视觉工厂</a>
           </div>
           <div className="nav-right">
-            <Link href="/dashboard" className="btn btn-brand btn-sm nav-cta-btn">免费开始</Link>
+            {!authChecked ? (
+              <div style={{ width: 120, height: 32 }} />
+            ) : isAuthenticated() && user ? (
+              <UserDropdown user={user} />
+            ) : (
+              /* Logged out: login + register buttons */
+              <>
+                <Link href="/login" className="btn btn-secondary btn-sm nav-login-btn">登录</Link>
+                <Link href="/register" className="btn btn-brand btn-sm nav-cta-btn">免费注册</Link>
+              </>
+            )}
             {/* Hamburger button (mobile only) */}
             <button
               className="landing-hamburger"
@@ -115,9 +147,30 @@ export default function LandingPage() {
         {/* Mobile nav overlay */}
         <div className={`landing-mobile-nav${mobileMenuOpen ? ' open' : ''}`}>
           <Link href="/landing#features" onClick={() => setMobileMenuOpen(false)}>功能</Link>
-          <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>短剧工厂</Link>
-          <Link href="/short-video/projects" onClick={() => setMobileMenuOpen(false)}>视觉工厂</Link>
-          <Link href="/dashboard" className="btn btn-brand btn-sm" onClick={() => setMobileMenuOpen(false)}>免费开始</Link>
+          {authChecked && isAuthenticated() ? (
+            <>
+              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>短剧工厂</Link>
+              <Link href="/short-video/projects" onClick={() => setMobileMenuOpen(false)}>视觉工厂</Link>
+              <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>账号设置</Link>
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: 'var(--space-2)' }}
+                onClick={() => {
+                  useAuthStore.getState().clearAuth();
+                  window.location.href = '/landing';
+                }}
+              >
+                退出登录
+              </button>
+            </>
+          ) : (
+            <>
+              <a href="/dashboard" onClick={(e) => { handleProtectedNav('/dashboard')(e); setMobileMenuOpen(false); }}>短剧工厂</a>
+              <a href="/short-video/projects" onClick={(e) => { handleProtectedNav('/short-video/projects')(e); setMobileMenuOpen(false); }}>视觉工厂</a>
+              <Link href="/login" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-2)' }}>登录</Link>
+              <Link href="/register" className="btn btn-brand btn-sm">免费注册</Link>
+            </>
+          )}
         </div>
       </nav>
 
@@ -134,13 +187,18 @@ export default function LandingPage() {
             顶级视频引擎，不绑定单一供应商。
           </p>
           <div className="hero-actions">
-            <Link href="/dashboard" className="btn btn-brand">
-              进入短剧工厂
+            <a href="/dashboard" className="btn btn-brand" onClick={handleProtectedNav('/dashboard')}>
+              {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M13 6l6 6-6 6" />
               </svg>
-            </Link>
+            </a>
             <Link href="/landing#features" className="btn btn-secondary">了解功能</Link>
+            {!useAuthStore.getState().isAuthenticated() && (
+              <Link href="/login" style={{ fontSize: 'var(--text-sm)', color: 'var(--muted)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                已有账号？登录
+              </Link>
+            )}
           </div>
           <div className="hero-meta">
             <span className="badge badge-success">
@@ -200,12 +258,12 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="section-cta">
-            <Link href="/dashboard" className="btn btn-brand">
-              进入短剧工厂
+            <a href="/dashboard" className="btn btn-brand" onClick={handleProtectedNav('/dashboard')}>
+              {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}>
                 <path d="M5 12h14 M12 5l7 7-7 7" />
               </svg>
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -227,12 +285,12 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="section-cta">
-            <Link href="/short-video/projects" className="btn btn-brand">
-              进入视觉工厂
+            <a href="/short-video/projects" className="btn btn-brand" onClick={handleProtectedNav('/short-video/projects')}>
+              {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入视觉工厂'}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}>
                 <path d="M5 12h14 M12 5l7 7-7 7" />
               </svg>
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -246,8 +304,12 @@ export default function LandingPage() {
             基于 ArcReel 构建，AGPL-3.0 开源。Docker 一键部署，五分钟启动属于你自己的短剧生产线。
           </p>
           <div className="cta-actions">
-            <Link href="/dashboard" className="btn btn-brand">进入短剧工厂</Link>
-            <Link href="/short-video/projects" className="btn btn-brand">进入视觉工厂</Link>
+            <a href="/dashboard" className="btn btn-brand" onClick={handleProtectedNav('/dashboard')}>
+              {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入短剧工厂'}
+            </a>
+            <a href="/short-video/projects" className="btn btn-brand" onClick={handleProtectedNav('/short-video/projects')}>
+              {useAuthStore.getState().isAuthenticated() ? '进入工作台' : '进入视觉工厂'}
+            </a>
             <a href="https://github.com" className="btn btn-secondary">GitHub</a>
           </div>
         </div>
@@ -403,6 +465,15 @@ export default function LandingPage() {
           align-items: center;
           gap: var(--space-3);
         }
+        .nav-login-btn {
+          color: var(--fg-2);
+          border-color: var(--border);
+          text-decoration: none;
+        }
+        .nav-login-btn:hover {
+          color: var(--fg);
+          border-color: var(--fg-2);
+        }
         .landing-hamburger {
           display: none;
           align-items: center;
@@ -430,6 +501,7 @@ export default function LandingPage() {
           .footer-grid { grid-template-columns: 1fr 1fr; }
           .nav-links { display: none; }
           .nav-cta-btn { display: none; }
+          .nav-login-btn { display: none; }
           .landing-hamburger { display: flex; }
           .landing-mobile-nav {
             display: flex;
@@ -489,6 +561,7 @@ export default function LandingPage() {
           .cta-actions { flex-direction: column; }
           .cta-actions .btn { width: 100%; justify-content: center; }
           .nav-cta-btn { display: none; }
+          .nav-login-btn { display: none; }
           .landing-hamburger { display: flex; }
           .footer-bottom { flex-direction: column; gap: var(--space-2); text-align: center; }
         }

@@ -1,19 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/auth';
 import { authApi, ApiError } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { isAuthenticated, setAuth } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.push('/dashboard');
+    }
+  }, []);
 
   function validatePassword(): string | null {
     if (password.length < 8) return '密码至少 8 位';
@@ -37,10 +48,15 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await authApi.register({ email, password, name });
-      sessionStorage.setItem('thash_pending_email', email);
-      sessionStorage.setItem('thash_pending_user_id', res.user.id);
-      router.push('/verify-email');
+      const registerRes = await authApi.register({ email, password, name });
+      // Auto-login: use token from register response if available, otherwise call login
+      if (registerRes.token) {
+        setAuth(registerRes.user, registerRes.token);
+      } else {
+        const loginRes = await authApi.login({ email, password });
+        setAuth(loginRes.user, loginRes.token);
+      }
+      router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -88,28 +104,62 @@ export default function RegisterPage() {
           </div>
           <div className="field">
             <label htmlFor="password">密码</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="至少 8 位，含大小写字母和数字"
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="至少 8 位，含大小写字母和数字"
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, lineHeight: 1, fontSize: 16 }}>
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
+            {password.length > 0 && (
+              <div style={{ marginTop: 4 }}>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 2 }}>
+                  {[1, 2, 3].map(i => {
+                    const level = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password) ? 3
+                      : password.length >= 6 && (/[A-Z]/.test(password) || /[0-9]/.test(password)) ? 2 : 1;
+                    const filled = i <= level;
+                    return (
+                      <div key={i} style={{
+                        flex: 1, height: 4, borderRadius: 2,
+                        background: filled ? (level === 3 ? 'var(--success)' : level === 2 ? '#f59e0b' : 'var(--danger)') : 'var(--border)',
+                      }} />
+                    );
+                  })}
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>
+                  {password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password)
+                    ? '强' : password.length >= 6 ? '中' : '弱'}{' '}
+                  · 至少 8 位，含大写字母和数字
+                </span>
+              </div>
+            )}
           </div>
           <div className="field">
             <label htmlFor="confirmPassword">确认密码</label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="再次输入密码"
-              required
-              autoComplete="new-password"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="再次输入密码"
+                required
+                autoComplete="new-password"
+              />
+              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, lineHeight: 1, fontSize: 16 }}>
+                {showConfirmPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
           <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)' }}>
             <input

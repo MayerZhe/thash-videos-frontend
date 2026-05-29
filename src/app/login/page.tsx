@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
@@ -9,13 +9,31 @@ import { authApi, ApiError, BASE_URL } from '@/lib/api';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setAuth } = useAuthStore();
+  const { setAuth, isAuthenticated } = useAuthStore();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
   const [mode, setMode] = useState<'credentials' | 'oauth'>('oauth');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expiredBanner, setExpiredBanner] = useState(false);
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.push(redirectTo);
+    }
+  }, []);
+
+  // Check for session expired flag from 401 interceptor
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('thash_session_expired') === '1') {
+      sessionStorage.removeItem('thash_session_expired');
+      setExpiredBanner(true);
+    }
+  }, []);
 
   async function handleCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +41,8 @@ function LoginForm() {
     setLoading(true);
     try {
       const res = await authApi.login({ email, password });
-      setAuth(res.user, res.token);
+      const expiresInMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : undefined;
+      setAuth(res.user, res.token, expiresInMs);
       router.push(redirectTo);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -43,6 +62,11 @@ function LoginForm() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        {expiredBanner && (
+          <div className="session-expired-banner">
+            登录已过期，请重新登录
+          </div>
+        )}
         <div className="auth-header">
           <h2>登录 Thash.videos</h2>
           <p className="body-muted">AI 短剧创作平台</p>
@@ -96,15 +120,34 @@ function LoginForm() {
             </div>
             <div className="field">
               <label htmlFor="password">密码</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, lineHeight: 1, fontSize: 16 }}>
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)' }}>
+                <input id="remember" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} />
+                <label htmlFor="remember" style={{ fontWeight: 400, fontSize: 'var(--text-sm)', color: 'var(--fg-2)', margin: 0 }}>
+                  保持登录状态
+                </label>
+              </div>
+              <a href="#" style={{ fontSize: 'var(--text-sm)', color: 'var(--muted)', textDecoration: 'underline', textUnderlineOffset: 2, whiteSpace: 'nowrap' }}
+                 onClick={(e) => { e.preventDefault(); setError('密码重置功能即将上线'); }}>
+                忘记密码？
+              </a>
             </div>
             {error && <p className="field-error">{error}</p>}
             <button type="submit" className="btn btn-brand" disabled={loading} style={{ justifyContent: 'center' }}>
@@ -174,6 +217,16 @@ function LoginForm() {
         .auth-divider span {
           font-size: var(--text-xs);
           color: var(--muted);
+        }
+        .session-expired-banner {
+          width: 100%;
+          padding: var(--space-3) var(--space-4);
+          background: color-mix(in oklab, var(--warning, #f59e0b), var(--bg) 85%);
+          border: 1px solid var(--warning, #f59e0b);
+          border-radius: var(--radius-sm);
+          color: var(--warning, #f59e0b);
+          font-size: var(--text-sm);
+          text-align: center;
         }
         .field-error {
           font-size: var(--text-xs);

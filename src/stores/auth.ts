@@ -42,6 +42,7 @@ export interface AuthState {
 
   isAuthenticated: () => boolean;
   setAuth: (user: User, token: string, expiresInMs?: number) => void;
+  updateUser: (partial: Partial<User>) => void;
   clearAuth: () => void;
   initialize: () => void;
   getToken: () => string | null;
@@ -95,6 +96,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       document.cookie = `${AUTH_TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
     }
     set({ user: null, token: null, sessionExpiry: null });
+  },
+
+  updateUser: (partial: Partial<User>) => {
+    const current = get().user;
+    if (current) {
+      const updated = { ...current, ...partial };
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+      set({ user: updated });
+    }
   },
 
   getToken: () => get().token,

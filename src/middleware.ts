@@ -10,8 +10,6 @@ const PUBLIC_PATHS = [
   '/verify-email',
   '/auth',
   '/video',
-  '/short-video',
-  '/dashboard',
 ] as const;
 
 const ALWAYS_PUBLIC_PREFIXES = ['/_next', '/api', '/favicon.ico', '/logo.png'] as const;

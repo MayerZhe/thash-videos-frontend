@@ -82,6 +82,21 @@ async function request<T>(
     } catch {
       errorBody = { error: res.statusText };
     }
+
+    // Global 401 interceptor — clear auth and redirect to login
+    if (res.status === 401 && typeof window !== 'undefined') {
+      const { useAuthStore } = await import('@/stores/auth');
+      useAuthStore.getState().clearAuth();
+      sessionStorage.setItem('thash_session_expired', '1');
+      const currentPath = window.location.pathname;
+      const publicPaths = ['/', '/landing', '/login', '/register', '/verify-email', '/auth', '/video'];
+      const isPublicPath = publicPaths.some(p => currentPath === p || currentPath.startsWith(p + '/'));
+      if (!isPublicPath) {
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+      }
+      throw new ApiError(401, { error: 'Session expired' });
+    }
+
     throw new ApiError(res.status, errorBody);
   }
 
@@ -302,6 +317,9 @@ const _authApi = {
 
   resetPassword: (data: { token: string; new_password: string }) =>
     apiPost<void>('/api/v1/auth/password-reset/confirm', data),
+
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    apiPost<void>('/api/v1/auth/change-password', data),
 };
 
 // ─── Phase 4: Credits API ───
@@ -359,10 +377,21 @@ const _exportApi = {
 
 const _pipelineApi = {
   precheck: (projectId: string, episodeNumber: number, data: PrecheckRequest) =>
-    apiPost<PipelinePrecheckResponse>('/api/v1/pipeline/precheck', { ...data, project_id: projectId, episode_number: episodeNumber }),
+    apiPost<PipelinePrecheckResponse>('/api/v1/pipeline/precheck', {
+      pipeline_type: data.mode || 'novel_to_drama',
+      episode_number: episodeNumber,
+      project_id: projectId,
+      stage: data.stage,
+    }),
 
   submit: (projectId: string, episodeNumber: number, data: PipelineSubmitRequest) =>
-    apiPost<PipelineSubmitResponse>('/api/v1/pipeline/submit', { ...data, project_id: projectId, episode_number: episodeNumber }),
+    apiPost<PipelineSubmitResponse>('/api/v1/pipeline/submit', {
+      pipeline_type: data.mode || 'novel_to_drama',
+      episode_number: episodeNumber,
+      project_id: projectId,
+      stage: data.stage,
+      dry_run: data.dry_run,
+    }),
 
   status: (jobId: string) =>
     apiGet<PipelineJobStatus>(`/api/v1/pipeline/jobs/${jobId}`),
@@ -381,6 +410,13 @@ const _pipelineApi = {
 
   agentOutput: (jobId: string, agentName: string) =>
     apiGet<AgentOutputData>(`/api/v1/pipeline/jobs/${jobId}/agent-output/${agentName}`),
+
+  streamUrl: (jobId: string) => {
+    const url = new URL(`${BASE_URL}/api/v1/pipeline/stream/${jobId}`);
+    const token = getToken();
+    if (token) url.searchParams.set('token', token);
+    return url.toString();
+  },
 };
 
 // ─── Video Projects ───
@@ -451,6 +487,20 @@ const _videoAssetsApi = {
 
   create: (projectId: string, data: CreateAssetRequest) =>
     apiPost<VideoAsset>(`/api/v1/video-projects/${projectId}/assets`, data),
+
+  upload: (projectId: string, file: File, metadata?: { name?: string; type?: string }) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (metadata) {
+      if (metadata.name) formData.append('name', metadata.name);
+      if (metadata.type) formData.append('type', metadata.type);
+    }
+    const url = `${BASE_URL}/api/v1/video-projects/${projectId}/assets/upload`;
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(url, { method: 'POST', headers, body: formData }).then(r => r.json()) as Promise<VideoAsset>;
+  },
 
   update: (projectId: string, assetId: string, data: Partial<VideoAsset>) =>
     apiPatch<VideoAsset>(`/api/v1/video-projects/${projectId}/assets/${assetId}`, data),

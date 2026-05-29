@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { settingsApi } from '@/lib/api';
-import type { TeamMember, BillingInfo } from '@/lib/types';
+import { settingsApi, authApi, ApiError } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth';
+import type { TeamMember, BillingInfo, User } from '@/lib/types';
 
 /* ═══════════════════════════════════════════════════════════════════════
  * Settings Page — 1:1 replica of Thash-video-design/settings.html
@@ -32,12 +33,42 @@ export default function SettingsPage() {
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
   const toastId = useState({ n: 0 })[0];
 
+  const storeUser = useAuthStore((s) => s.user);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
+
+  // Profile state
+  const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const loadProfile = useCallback(async () => {
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const user = await authApi.getCurrentUser();
+      setProfileUser(user);
+      setDisplayName(user.display_name || user.name || '');
+      setBio(user.bio || '');
+    } catch (err) {
+      setProfileError((err as Error).message);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
 
   const toast = (msg: string) => {
     const id = ++toastId.n;
@@ -78,7 +109,52 @@ export default function SettingsPage() {
     if (activeTab === 'billing' && !billing && !billingLoading && !billingError) {
       loadBilling();
     }
-  }, [activeTab, team, teamLoading, teamError, billing, billingLoading, billingError, loadTeam, loadBilling]);
+    if (activeTab === 'profile' && !profileUser && !profileLoading && !profileError) {
+      loadProfile();
+    }
+  }, [activeTab, team, teamLoading, teamError, billing, billingLoading, billingError,
+      profileUser, profileLoading, profileError, loadTeam, loadBilling, loadProfile]);
+
+  const handleSaveProfile = async () => {
+    setProfileSaving(true);
+    try {
+      const patch: Record<string, string> = {};
+      if (displayName !== (profileUser?.display_name || profileUser?.name || '')) {
+        patch.display_name = displayName;
+      }
+      if (bio !== (profileUser?.bio || '')) {
+        patch.bio = bio;
+      }
+      if (Object.keys(patch).length > 0) {
+        await authApi.updateProfile(patch);
+        useAuthStore.getState().updateUser(patch);
+        setProfileUser((prev) => prev ? { ...prev, ...patch } : prev);
+      }
+      toast('个人资料已保存');
+    } catch (err) {
+      toast((err instanceof ApiError ? err.message : '保存失败'));
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword) { toast('请输入当前密码'); return; }
+    if (newPassword.length < 8) { toast('新密码至少 8 位'); return; }
+    if (newPassword !== confirmNewPassword) { toast('两次新密码不一致'); return; }
+    setPasswordSaving(true);
+    try {
+      await authApi.changePassword({ current_password: currentPassword, new_password: newPassword });
+      toast('密码已修改');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err) {
+      toast((err instanceof ApiError ? err.message : '密码修改失败，请稍后重试'));
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
 
   return (
     <div className="st-content">
@@ -101,24 +177,134 @@ export default function SettingsPage() {
         <div className="settings-panel">
           {/* Profile */}
           {activeTab === 'profile' && (
-            <div className="settings-section">
-              <h3>个人资料</h3>
-              <div className="stack-4">
-                <div className="flex items-center gap-4" style={{ gap: 'var(--space-4)' }}>
-                  <div className="avatar" style={{ width: 64, height: 64, fontSize: 'var(--text-xl)' }}>CS</div>
-                  <div><button className="btn btn-secondary btn-sm">更换头像</button></div>
+            <>
+              {profileLoading ? (
+                <div className="settings-section">
+                  <h3>个人资料</h3>
+                  <div className="stack-4">
+                    <div className="flex items-center gap-4" style={{ gap: 'var(--space-4)' }}>
+                      <div className="skeleton-avatar" />
+                      <div className="skeleton-line" style={{ width: 100 }} />
+                    </div>
+                    <div className="grid-2">
+                      <div className="field"><label>显示名称</label><div className="skeleton-input" /></div>
+                      <div className="field"><label>邮箱</label><div className="skeleton-input" /></div>
+                    </div>
+                    <div className="field"><label>简介</label><div className="skeleton-input" style={{ height: 60 }} /></div>
+                  </div>
                 </div>
-                <div className="grid-2">
-                  <div className="field"><label>显示名称</label><input type="text" defaultValue="Creator Studio" /></div>
-                  <div className="field"><label>邮箱</label><input type="email" defaultValue="creator@thash.video" /></div>
+              ) : profileError ? (
+                <div className="settings-section">
+                  <h3>个人资料</h3>
+                  <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
+                    <p className="text-danger" style={{ marginBottom: 'var(--space-3)' }}>{profileError}</p>
+                    <button className="btn btn-brand btn-sm" onClick={loadProfile}>重试</button>
+                  </div>
                 </div>
-                <div className="field">
-                  <label>简介</label>
-                  <textarea rows={2} placeholder="介绍一下你的创作方向..." defaultValue="AI 短剧创作者，专注于玄幻/都市题材的短剧改编。" />
+              ) : profileUser ? (
+                <>
+                  <div className="settings-section">
+                    <h3>个人资料</h3>
+                    <div className="stack-4">
+                      <div className="flex items-center gap-4" style={{ gap: 'var(--space-4)' }}>
+                        <div className="avatar" style={{ width: 64, height: 64, fontSize: 'var(--text-xl)' }}>
+                          {profileUser.avatar_url
+                            ? <img src={profileUser.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            : (profileUser.display_name || profileUser.name || '?').charAt(0).toUpperCase()
+                          }
+                        </div>
+                        <div><button className="btn btn-secondary btn-sm">更换头像</button></div>
+                      </div>
+                      <div className="grid-2">
+                        <div className="field">
+                          <label>显示名称</label>
+                          <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} minLength={2} maxLength={50} />
+                          <span style={{ fontSize: 10, color: displayName.length > 50 ? 'var(--danger)' : 'var(--muted)', textAlign: 'right', display: 'block', marginTop: 2 }}>
+                            {displayName.length}/50
+                          </span>
+                        </div>
+                        <div className="field">
+                          <label>邮箱</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                            <input type="email" value={profileUser.email} readOnly style={{ flex: 1, cursor: 'not-allowed', opacity: 0.7 }} />
+                            {profileUser.email_verified ? (
+                              <span className="badge badge-success" style={{ whiteSpace: 'nowrap', fontSize: 11 }}>已验证</span>
+                            ) : (
+                              <>
+                                <span className="badge badge-warn" style={{ whiteSpace: 'nowrap', fontSize: 11 }}>
+                                  待验证
+                                </span>
+                                <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap', fontSize: 11 }}
+                                  onClick={async () => {
+                                    try {
+                                      await authApi.resendVerification({ user_id: profileUser.id });
+                                      toast('验证邮件已重新发送');
+                                    } catch { toast('发送失败，请稍后重试'); }
+                                  }}>
+                                  重发验证邮件
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label>简介</label>
+                        <textarea rows={2} placeholder="介绍一下你的创作方向..." value={bio} onChange={(e) => setBio(e.target.value)} maxLength={200} />
+                        <span style={{ fontSize: 10, color: bio.length > 200 ? 'var(--danger)' : 'var(--muted)', textAlign: 'right', display: 'block', marginTop: 2 }}>
+                          {bio.length}/200
+                        </span>
+                      </div>
+                      <button className="btn btn-brand" disabled={profileSaving} onClick={handleSaveProfile}>
+                        {profileSaving ? '保存中...' : '保存修改'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Change Password (P1) */}
+                  <div className="settings-section">
+                    <h3>修改密码</h3>
+                    <div className="stack-4">
+                      <div className="field">
+                        <label>当前密码</label>
+                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="输入当前密码" />
+                      </div>
+                      <div className="field">
+                        <label>新密码</label>
+                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="至少 8 位" minLength={8} />
+                      </div>
+                      <div className="field">
+                        <label>确认新密码</label>
+                        <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} placeholder="再次输入新密码" />
+                      </div>
+                      <button className="btn btn-brand" disabled={passwordSaving} onClick={handleChangePassword}>
+                        {passwordSaving ? '修改中...' : '修改密码'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Danger Zone */}
+                  <div className="settings-section" style={{ borderColor: 'var(--danger)', borderWidth: 1 }}>
+                    <h3 style={{ color: 'var(--danger)' }}>危险区域</h3>
+                    <p className="body-muted body-sm" style={{ marginBottom: 'var(--space-3)' }}>
+                      删除账号将永久删除所有数据和项目，不可恢复。
+                    </p>
+                    <button className="btn btn-danger btn-sm" onClick={() => {
+                      if (window.confirm('确定要删除账号吗？此操作不可撤销！')) {
+                        toast('账号删除功能即将上线');
+                      }
+                    }}>
+                      删除我的账号
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="settings-section">
+                  <h3>个人资料</h3>
+                  <p className="text-muted" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>无法加载个人资料</p>
                 </div>
-                <button className="btn btn-brand" onClick={() => toast('修改已保存')}>保存修改</button>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
           {/* API Keys */}
@@ -361,6 +547,12 @@ export default function SettingsPage() {
         .settings-section .field select:focus,
         .settings-section .field textarea:focus { border-color: var(--accent); }
         .settings-section input::placeholder, .settings-section textarea::placeholder { color: var(--meta); }
+        .settings-section .field input[readonly] { background: var(--bg); }
+        /* Skeleton loading */
+        .skeleton-avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(90deg, var(--border) 25%, var(--border-soft) 50%, var(--border) 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s ease-in-out infinite; }
+        .skeleton-line { height: 14px; border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--border) 25%, var(--border-soft) 50%, var(--border) 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s ease-in-out infinite; }
+        .skeleton-input { width: 100%; height: 40px; border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--border) 25%, var(--border-soft) 50%, var(--border) 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s ease-in-out infinite; }
+        @keyframes skeleton-wave { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         .api-key-row { display: flex; gap: var(--space-3); align-items: flex-end; }
         .api-key-row input { flex: 1; padding: 9px var(--space-3); border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--border); color: var(--fg); font-family: var(--font-mono); font-size: var(--text-sm); outline: none; }
         .api-key-row input::placeholder { color: var(--meta); }

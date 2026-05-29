@@ -135,7 +135,8 @@ seedEpisodes();
 let mockUsers: User[] = [
   {
     id: 'user_mock_1', email: 'admin@thash.videos', name: '管理员',
-    avatar_url: null, created_at: isoDate(-90), plan: 'pro',
+    display_name: '管理员', avatar_url: null, is_active: true, is_superuser: false,
+    created_at: isoDate(-90), plan: 'pro',
     monthly_budget_limit: 100000, project_budget_limit: 50000,
   },
 ];
@@ -528,7 +529,10 @@ export const mockAuthApi = {
       id: uid('user'),
       email: data.email,
       name: data.name,
+      display_name: data.name,
       avatar_url: null,
+      is_active: true,
+      is_superuser: false,
       created_at: isoDate(0),
       plan: 'free',
       monthly_budget_limit: null,
@@ -568,6 +572,10 @@ export const mockAuthApi = {
 
   resetPassword: async (_data: { token: string; new_password: string }): Promise<void> => {
     await delay();
+  },
+
+  changePassword: async (_data: { current_password: string; new_password: string }): Promise<void> => {
+    await delay(300);
   },
 };
 
