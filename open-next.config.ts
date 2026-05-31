@@ -1,4 +1,21 @@
-// @ts-nocheck — @opennextjs/cloudflare is only available in Cloudflare Pages build env
-import { defineCloudflareConfig } from "@opennextjs/cloudflare/config";
+const config = {
+  default: {
+    override: {
+      wrapper: "cloudflare-node",
+      converter: "edge",
+      incrementalCache: "dummy",
+      tagCache: "dummy",
+      queue: "dummy",
+    },
+  },
+  middleware: {
+    external: true,
+    override: {
+      wrapper: "cloudflare-edge",
+      converter: "edge",
+      proxyExternalRequest: "fetch",
+    },
+  },
+};
 
-export default defineCloudflareConfig({});
+export default config;
