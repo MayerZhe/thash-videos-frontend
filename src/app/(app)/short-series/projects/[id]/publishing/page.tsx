@@ -83,9 +83,13 @@ export default function PublishingPage() {
   if (loading) {
     return (
       <div className="pb-content">
-        <div className="flex items-center justify-center py-16">
-          <p className="text-sm text-muted">加载发布数据...</p>
+        <div className="channel-grid">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="skeleton" style={{ height: 120, borderRadius: 'var(--radius-lg)' }} />
+          ))}
         </div>
+        <div className="skeleton" style={{ height: 24, width: 160, borderRadius: 'var(--radius-sm)', marginTop: 'var(--space-8)', marginBottom: 'var(--space-4)' }} />
+        <div className="skeleton" style={{ height: 100, borderRadius: 'var(--radius-md)' }} />
       </div>
     );
   }

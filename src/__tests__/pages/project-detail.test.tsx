@@ -89,11 +89,12 @@ beforeEach(() => {
  * ────────────────────────────────────────────── */
 
 describe('ProjectDetailPage — loading state', () => {
-  it('should display loading text initially', () => {
+  it('should display skeleton UI during loading', () => {
     apiMocks.projectsApi.get.mockReturnValue(new Promise(() => {}));
     apiMocks.episodesApi.list.mockReturnValue(new Promise(() => {}));
     render(<ProjectDetailPage />);
-    expect(screen.getByText('加载中...')).toBeDefined();
+    const skeletons = document.querySelectorAll('.skeleton');
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 });
 

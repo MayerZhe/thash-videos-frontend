@@ -124,9 +124,15 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="an-content">
-        <div className="flex items-center justify-center py-16">
-          <p className="text-sm text-muted">加载分析数据...</p>
+        <div className="kpi-row">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="kpi">
+              <div className="skeleton" style={{ height: 14, width: 60, borderRadius: 'var(--radius-pill)', marginBottom: 8 }} />
+              <div className="skeleton" style={{ height: 32, width: 100, borderRadius: 'var(--radius-sm)' }} />
+            </div>
+          ))}
         </div>
+        <div className="skeleton" style={{ height: 240, borderRadius: 'var(--radius-lg)', marginTop: 'var(--space-6)' }} />
       </div>
     );
   }

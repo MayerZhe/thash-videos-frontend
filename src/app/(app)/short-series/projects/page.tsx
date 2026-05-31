@@ -161,7 +161,11 @@ export default function DashboardPage() {
 
       {/* Project Grid */}
       {loading ? (
-        <p className="text-sm text-muted text-center py-12">加载中...</p>
+        <div className="grid">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton" style={{ height: 200, borderRadius: 'var(--radius-lg)' }} />
+          ))}
+        </div>
       ) : error ? (
         <div className="flex flex-col items-center gap-3 py-12">
           <p className="text-sm text-danger">加载失败: {error}</p>
@@ -217,6 +221,14 @@ export default function DashboardPage() {
                 <h3 className="project-title">{p.title}</h3>
                 <div className="project-meta">
                   {p.style && <span className="style-tag">{styleLabels[p.style] || p.style}</span>}
+                  <span className="meta-item">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    0 角色
+                  </span>
+                  <span className="meta-item">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    0 场景
+                  </span>
                 </div>
               </div>
 
@@ -323,7 +335,7 @@ export default function DashboardPage() {
         }
         .head-left { display: flex; flex-direction: column; gap: 4px; }
         .page-title {
-          font-family: var(--font-display); font-size: 26px; font-weight: 500;
+          font-family: var(--font-display); font-size: 26px; font-weight: 700;
           letter-spacing: -0.02em; color: var(--fg); line-height: var(--leading-tight);
         }
         .page-desc { font-size: var(--text-sm); color: var(--muted); font-weight: 400; }
@@ -384,7 +396,7 @@ export default function DashboardPage() {
         .project-card:hover .card-delete { opacity: 1; }
 
         .project-title {
-          font-family: var(--font-display); font-size: 16px; font-weight: 500;
+          font-family: var(--font-display); font-size: 16px; font-weight: 600;
           line-height: 1.35; color: var(--fg);
         }
         .project-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

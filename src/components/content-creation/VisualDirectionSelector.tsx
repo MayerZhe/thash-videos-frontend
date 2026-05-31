@@ -62,7 +62,7 @@ export default function VisualDirectionSelector() {
   const currentId = (activeDesignSystem || 'cinematic') as DesignSystemId;
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-6 space-y-4">
+    <div className="w-full p-3 space-y-4">
       <h2 className="text-lg font-semibold text-fg">视觉方向</h2>
       <p className="text-sm text-muted mb-4">
         选择一个视觉方向，AI 将在所有下游生成中保持一致的视觉风格
@@ -76,7 +76,7 @@ export default function VisualDirectionSelector() {
             <button
               key={ds.id}
               onClick={() => setActiveDesignSystem(ds.id)}
-              className={`relative p-4 rounded-lg border-2 text-left transition-all duration-200 ${
+              className={`relative p-3 rounded-lg border-2 text-left transition-all duration-200 ${
                 isActive
                   ? 'border-accent bg-[color-mix(in_oklab,var(--accent)_6%,transparent)] shadow-accent/10 shadow-lg'
                   : 'border-border hover:border-[#555] bg-surface'
@@ -94,16 +94,16 @@ export default function VisualDirectionSelector() {
               </div>
 
               <h3 className="text-sm font-semibold text-fg mb-1">{ds.label}</h3>
-              <p className="text-xs text-muted mb-3 leading-relaxed">{ds.description}</p>
+              <p className="text-xs text-muted mb-2 leading-relaxed">{ds.description}</p>
 
               <div className="space-y-1 text-[10px] text-meta">
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span>字体</span>
-                  <span className="text-fg-2">{ds.typography}</span>
+                  <span className="text-fg-2 break-words">{ds.typography}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex flex-col gap-0.5">
                   <span>氛围</span>
-                  <span className="text-fg-2">{ds.atmosphere}</span>
+                  <span className="text-fg-2 break-words">{ds.atmosphere}</span>
                 </div>
               </div>
 

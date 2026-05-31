@@ -5,10 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '@/stores/app';
 import { versionsApi, episodesApi, pipelineApi, BASE_URL } from '@/lib/api';
 import { useToast } from '@/components/global/Toast';
-import PipelineSidebar, { type AgentStatus } from '@/components/content-creation/PipelineSidebar';
+import { type AgentStatus } from '@/components/content-creation/PipelineSidebar';
 import PipelineModeSelector from '@/components/content-creation/PipelineModeSelector';
 import Topbar from '@/components/content-creation/Topbar';
-import RightPanel from '@/components/content-creation/RightPanel';
 import AgentRuntime from '@/components/content-creation/AgentRuntime';
 import type { AgentTurn } from '@/components/content-creation/AgentRuntime';
 import DrawMode from '@/components/content-creation/DrawMode';
@@ -411,28 +410,182 @@ export default function ContentCreationPage() {
       {/* Pipeline mode bar */}
       <PipelineModeSelector />
 
-      {/* Three-panel workspace — studio-body pattern */}
-      <div className="studio-body">
-        {/* Left: Pipeline sidebar */}
-        <PipelineSidebar
-          onStageClick={handleStageClick}
-          versionCounts={versionCounts}
-          agentStates={agentStates}
-          onGenerate={handleGenerate}
-          onPrecheck={handlePrecheck}
-          activeJob={activeJob}
-          precheckLoading={precheckLoading}
-        />
-
-        {/* Center: Main canvas with stage panels */}
-        <div className="main">
-          <div className="content-panel active">
-            {renderStage()}
+      {/* Three-panel workspace — prototype: left storyboard + center content + right chat */}
+      <div className="main-body">
+        {/* Left: Storyboard list — prototype pattern */}
+        <div className="left-panel">
+          <div className="panel-header">
+            <div className="panel-title">分镜列表</div>
+            <div className="panel-actions">
+              <button className="icon-btn" title="刷新">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M13 8A5 5 0 1 1 8 3"/><path d="M8 1v4l3-2-3-2z"/></svg>
+              </button>
+            </div>
+          </div>
+          <div className="storyboard-list">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className={`shot-card ${activeStage === 4 ? 'active' : ''}`}>
+                <div className="shot-thumb">
+                  <div className="shot-thumb-placeholder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#4d4d4d" strokeWidth="1.5" width="24" height="24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+                  </div>
+                </div>
+                <div className="shot-meta">
+                  <span className="shot-number">SHOT {String(i + 1).padStart(2, '0')}</span>
+                  <span className="shot-type">MS</span>
+                </div>
+                <div className="shot-desc">分镜 {i + 1} · 待生成</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: 8 }}>
+            <button className="add-shot-btn">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14"><path d="M8 3v10M3 8h10" strokeLinecap="round"/></svg>
+              添加分镜
+            </button>
           </div>
         </div>
 
-        {/* Right: Collapsible panel rail */}
-        <RightPanel />
+        {/* Center: AI Execution area */}
+        <div className="center-panel">
+          {/* Agent stage buttons */}
+          <div className="agent-stages">
+            {[
+              { key: 'script', icon: '1', label: '编剧 Agent' },
+              { key: 'storyboard', icon: '2', label: '导演 Agent' },
+              { key: 'visual', icon: '3', label: '视觉 Agent' },
+              { key: 'audio', icon: '4', label: '音频 Agent' },
+              { key: 'compose', icon: '5', label: '合成 Agent' },
+            ].map((stage, i) => {
+              const isActive = activeStage >= i * 2 && activeStage <= i * 2 + 1;
+              return (
+                <button
+                  key={stage.key}
+                  className={`agent-stage-btn ${isActive ? 'active' : 'idle'}`}
+                  onClick={() => setActiveStage(i * 2)}
+                >
+                  <span className="stage-icon">{stage.icon}</span>
+                  {stage.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Scrollable content */}
+          <div className="center-scroll">
+            <div className="content-panel active">
+              {renderStage()}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: AI Chat panel — prototype pattern */}
+        <div className="right-panel">
+          <div className="panel-header">
+            <div className="panel-title">AI 指令中心</div>
+            <div className="panel-actions">
+              <button className="icon-btn" title="清空对话" onClick={() => setAgentMessages([])}>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10"/></svg>
+              </button>
+            </div>
+          </div>
+          <div className="chat-messages">
+            {agentMessages.length === 0 ? (
+              <div className="chat-empty-state">
+                <div className="chat-empty-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 5v4l3 3"/></svg>
+                </div>
+                <div className="chat-empty-title">对话式创作</div>
+                <div className="chat-empty-desc">用自然语言描述你的需求，AI 自动完成编剧→分镜→视频生成→合成</div>
+              </div>
+            ) : (
+              agentMessages.map((msg) => (
+                <div key={msg.id} className={`msg-wrap ${msg.role}`}>
+                  <div className={`msg-avatar ${msg.role}`}>
+                    {msg.role === 'user' ? 'U' : 'A'}
+                  </div>
+                  <div className="msg-body">
+                    <div className="msg-role">{msg.role === 'user' ? '你' : 'AI Agent'}</div>
+                    <div className={`msg-text ${msg.role === 'user' ? 'user-msg' : ''}`}>
+                      {msg.content}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+            {agentStreaming && (
+              <div className="typing-indicator">
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+              </div>
+            )}
+          </div>
+          <div className="chat-input-area">
+            <div className="input-wrapper">
+              <textarea
+                className="chat-input"
+                rows={1}
+                placeholder="描述你的视频需求..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const target = e.target as HTMLTextAreaElement;
+                    if (target.value.trim()) {
+                      handleAgentSend(target.value.trim());
+                      target.value = '';
+                    }
+                  }
+                }}
+              />
+              <button className="send-btn" onClick={() => setAgentDialogOpen(true)}>
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M14 1L2 8l5 1.5 1.5 5L14 1zM2 8l12 1"/></svg>
+              </button>
+            </div>
+            <div className="suggestions-row">
+              <button className="suggestion-pill" onClick={() => handleAgentSend('做一个产品展示视频，30秒')}>产品展示</button>
+              <button className="suggestion-pill" onClick={() => handleAgentSend('做一个品牌故事视频，45秒')}>品牌故事</button>
+              <button className="suggestion-pill" onClick={() => handleAgentSend('做一个知识科普视频，60秒')}>知识科普</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Timeline — prototype pattern */}
+      <div className="timeline-strip-bottom">
+        <div className="timeline-header">
+          <div className="timeline-title">时间线</div>
+          <span style={{ fontSize: 11, color: '#898989', marginLeft: 8 }}>竖版 9:16 · 1080×1920</span>
+          <div className="timeline-meta">总时长 0:00 / 目标 30s</div>
+        </div>
+        <div className="timeline-tracks">
+          <div className="track-row">
+            <div className="track-label">视频</div>
+            <div className="track-clips">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div key={i} className="clip-block video" style={{ left: `${i * 20}%`, width: '19%' }}>
+                  S{i + 1}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="track-row">
+            <div className="track-label">音频</div>
+            <div className="track-clips">
+              <div className="clip-block audio" style={{ left: '0%', width: '100%' }}>旁白 + BGM</div>
+            </div>
+          </div>
+          <div className="track-row">
+            <div className="track-label">字幕</div>
+            <div className="track-clips">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div key={i} className="clip-block subtitle" style={{ left: `${i * 20}%`, width: '19%' }}>
+                  字幕{i + 1}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Draw Mode ── */}

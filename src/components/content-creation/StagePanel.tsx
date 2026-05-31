@@ -32,15 +32,15 @@ export function SourceContentPanel({ data }: { data?: Record<string, unknown> })
   };
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="ws-split">
       {/* Left: Source Editor */}
-      <div className="flex-1 p-6 flex flex-col">
+      <div className="ws-left">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-normal text-fg">原始内容</h3>
           <button className="btn btn-brand btn-sm" onClick={handleAnalyze}>分析</button>
         </div>
         <textarea
-          className="flex-1 bg-surface border border-border rounded-sm p-4 text-sm text-fg-2 font-mono resize-none outline-none focus:border-accent"
+          className="flex-1 bg-surface border border-border rounded-sm p-4 text-sm text-fg-2 font-mono resize-none outline-none focus:border-accent min-h-[380px]"
           placeholder="粘贴或输入原始故事内容、小说片段、创意描述..."
           value={rawText}
           onChange={(e) => setRawText(e.target.value)}
@@ -48,7 +48,7 @@ export function SourceContentPanel({ data }: { data?: Record<string, unknown> })
       </div>
 
       {/* Right: NLP Analysis */}
-      <div className="w-[380px] border-l border-border-soft p-6 overflow-y-auto">
+      <div className="ws-right">
         <h4 className="text-sm font-medium text-fg mb-4">NLP 分析结果</h4>
         {analysis ? (
           <div className="space-y-4">
@@ -81,8 +81,8 @@ export function ScriptRewritePanel({ data }: { data?: Record<string, unknown> })
   const [script, setScript] = useState(initialScript);
 
   return (
-    <div className="flex gap-0 h-full">
-      <div className="flex-1 p-6 flex flex-col">
+    <div className="ws-split">
+      <div className="ws-left">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-normal text-fg">AI 改写剧本</h3>
           <button className="btn btn-brand btn-sm">生成</button>
@@ -94,7 +94,7 @@ export function ScriptRewritePanel({ data }: { data?: Record<string, unknown> })
           onChange={(e) => setScript(e.target.value)}
         />
       </div>
-      <div className="w-[380px] border-l border-border-soft p-6 overflow-y-auto">
+      <div className="ws-right">
         <h4 className="text-sm font-medium text-fg mb-4">统计与分析</h4>
         <div className="space-y-3">
           <div className="bg-bg border border-border rounded-sm p-3">
@@ -141,9 +141,9 @@ export function CharacterPanel({ data }: { data?: Record<string, unknown> }) {
   ];
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="ws-split">
       {/* Left: Character List */}
-      <div className="w-[380px] p-6 overflow-y-auto border-r border-border-soft">
+      <div className="ws-right" style={{ borderRight: '1px solid var(--border-soft)', borderLeft: 'none', paddingLeft: 0, paddingRight: 16 }}>
         <h3 className="text-lg font-normal text-fg mb-4">角色管理</h3>
         <div className="space-y-1">
           {characters.map((char) => (
@@ -169,7 +169,7 @@ export function CharacterPanel({ data }: { data?: Record<string, unknown> }) {
       </div>
 
       {/* Right: Character Detail Inspector */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="ws-left">
         {selectedChar ? (
           (() => {
             const char = characters.find((c) => c.id === selectedChar)!;
@@ -232,8 +232,8 @@ export function ScenePanel({ data }: { data?: Record<string, unknown> }) {
   ];
 
   return (
-    <div className="flex gap-0 h-full">
-      <div className="w-[380px] p-6 overflow-y-auto border-r border-border-soft">
+    <div className="ws-split">
+      <div className="ws-right" style={{ borderRight: '1px solid var(--border-soft)', borderLeft: 'none', paddingLeft: 0, paddingRight: 16 }}>
         <h3 className="text-lg font-normal text-fg mb-4">场景管理</h3>
         <div className="space-y-1">
           {scenes.map((scene) => (
@@ -257,7 +257,7 @@ export function ScenePanel({ data }: { data?: Record<string, unknown> }) {
           ))}
         </div>
       </div>
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="ws-left">
         {selectedScene ? (
           (() => {
             const scene = scenes.find((s) => s.id === selectedScene)!;
@@ -323,7 +323,7 @@ export function StoryboardPanel({ data }: { data?: Record<string, unknown> }) {
   return (
     <div className="flex flex-col h-full">
       {/* Timeline strip */}
-      <div className="flex-1 p-6 overflow-x-auto overflow-y-hidden">
+      <div className="ws-full overflow-x-auto overflow-y-hidden">
         <div className="flex gap-4 min-w-max h-full items-start">
           {shots.map((shot) => (
             <div
@@ -427,9 +427,9 @@ export function ImageGalleryPanel({ data }: { data?: Record<string, unknown> }) 
     score >= 0.9 ? 'text-success' : score >= 0.75 ? 'text-warn' : 'text-danger';
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="ws-split">
       {/* Left: Thumbnail gallery */}
-      <div className="w-[420px] p-6 overflow-y-auto border-r border-border-soft">
+      <div className="ws-right" style={{ width: 420, borderRight: '1px solid var(--border-soft)', borderLeft: 'none', paddingLeft: 0, paddingRight: 16 }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-normal text-fg">图片生成</h3>
           <span className="text-xs text-muted">{images.filter((i) => i.status === 'done').length}/{images.length} 已完成</span>
@@ -479,7 +479,7 @@ export function ImageGalleryPanel({ data }: { data?: Record<string, unknown> }) 
       </div>
 
       {/* Right: Detail preview */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="ws-left">
         {selectedIdx !== null ? (
           (() => {
             const img = images[selectedIdx];
@@ -585,9 +585,9 @@ export function VideoGalleryPanel({ data }: { data?: Record<string, unknown> }) 
   };
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="ws-split">
       {/* Left: Video thumbnail grid */}
-      <div className="w-[420px] p-6 overflow-y-auto border-r border-border-soft">
+      <div className="ws-right" style={{ width: 420, borderRight: '1px solid var(--border-soft)', borderLeft: 'none', paddingLeft: 0, paddingRight: 16 }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-normal text-fg">视频生成</h3>
           <span className="text-xs text-muted">{videos.filter((v) => v.status === 'done').length}/{videos.length} 完成</span>
@@ -642,7 +642,7 @@ export function VideoGalleryPanel({ data }: { data?: Record<string, unknown> }) 
       </div>
 
       {/* Right: Preview + CLIP chart */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="ws-left">
         {selectedIdx !== null ? (
           (() => {
             const vid = videos[selectedIdx];
@@ -726,9 +726,9 @@ export function TTSMatrixPanel({ data }: { data?: Record<string, unknown> }) {
   const [selectedCell, setSelectedCell] = useState<{ char: number; sup: number } | null>(null);
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="ws-split">
       {/* Left: Voice matrix */}
-      <div className="flex-1 p-6 overflow-auto">
+      <div className="ws-left">
         <h3 className="text-lg font-normal text-fg mb-4">TTS 配音 · 音色矩阵</h3>
         <p className="text-xs text-muted mb-4">行: 角色 · 列: 供应商 — 点击单元格选择音色</p>
         <div className="inline-block min-w-max">
@@ -786,7 +786,7 @@ export function TTSMatrixPanel({ data }: { data?: Record<string, unknown> }) {
       </div>
 
       {/* Right: Voice detail inspector */}
-      <div className="w-[380px] border-l border-border-soft p-6 overflow-y-auto">
+      <div className="ws-right">
         <h4 className="text-sm font-medium text-fg mb-4">音色详情</h4>
         {selectedCell ? (
           (() => {
@@ -914,7 +914,7 @@ export function ShotCompositionPanel({ data }: { data?: Record<string, unknown> 
       </div>
 
       {/* Composition queue */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-2 max-w-[960px]">
           {shots.map((shot) => (
             <div
@@ -1017,7 +1017,7 @@ export function EpisodeMergePanel({ data }: { data?: Record<string, unknown> }) 
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="p-6">
+      <div className="p-4">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-normal text-fg">整集拼接</h3>
           <div className="flex gap-4 text-sm">

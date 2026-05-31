@@ -80,10 +80,11 @@ beforeEach(() => {
  * ────────────────────────────────────────────── */
 
 describe('DashboardPage — loading state', () => {
-  it('should display loading text initially', () => {
+  it('should display skeleton UI during loading', () => {
     apiMocks.projectsApi.list.mockReturnValue(new Promise(() => {}));
     render(<DashboardPage />);
-    expect(screen.getByText('加载中...')).toBeDefined();
+    const skeletons = document.querySelectorAll('.skeleton');
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 });
 

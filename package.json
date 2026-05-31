@@ -6,16 +6,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "npx @opennextjs/cloudflare build",
+    "build:next": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "build:next": "next build"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@opennextjs/cloudflare": "^1.19.11",
     "@tailwindcss/postcss": "^4.3.0",
     "next": "^15.5.18",
     "react": "^19.2.6",

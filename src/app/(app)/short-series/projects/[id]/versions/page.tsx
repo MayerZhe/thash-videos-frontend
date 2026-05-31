@@ -1,24 +1,53 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { versionsApi } from '@/lib/api';
 import { useToast } from '@/components/global/Toast';
-import type { StageLabel, Version, AuthorType } from '@/lib/types';
+import type { StageLabel, Version } from '@/lib/types';
 import { STAGE_NAMES } from '@/lib/types';
 
 // ─── Constants ───
 
-const STAGE_FILTER_KEYS = ['all', 'tagged', 'script_rewrite', 'character_management', 'storyboard', 'image_generation', 'video_generation', 'tts_dubbing'] as const;
+const STAGE_FILTER_KEYS: Array<{ key: string; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'tagged', label: '已标记' },
+  { key: 'script_rewrite', label: 'AI改写' },
+  { key: 'character_management', label: '角色管理' },
+  { key: 'scene_management', label: '场景管理' },
+  { key: 'storyboard', label: '分镜表' },
+  { key: 'image_generation', label: '图片生成' },
+  { key: 'video_generation', label: '视频生成' },
+  { key: 'tts_dubbing', label: 'TTS配音' },
+];
 
 const BRANCH_COLORS_POOL = ['#3ecf8e', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e'];
-function getBranchColor(branchName: string, index: number): string {
-  // Stable color per branch name via simple hash
+
+function getBranchColor(branchName: string): string {
   let hash = 0;
   for (let i = 0; i < branchName.length; i++) {
     hash = branchName.charCodeAt(i) + ((hash << 5) - hash);
   }
   return BRANCH_COLORS_POOL[Math.abs(hash) % BRANCH_COLORS_POOL.length];
+}
+
+function fmtDate(s: string): string {
+  if (!s) return '';
+  const d = new Date(s);
+  const now = Date.now();
+  const diff = now - d.getTime();
+  const H = 3600000;
+  const D = 86400000;
+  if (diff < H) return Math.floor(diff / 60000) + ' 分钟前';
+  if (diff < D) return Math.floor(diff / H) + ' 小时前';
+  if (diff < 7 * D) return Math.floor(diff / D) + ' 天前';
+  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function fullTime(s: string): string {
+  if (!s) return '';
+  const d = new Date(s);
+  return d.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // ─── DAG Graph Sub-component ───
@@ -28,129 +57,290 @@ function DAGGraph({
   branches,
   selectedId,
   onSelect,
-  branchFilter,
 }: {
   versions: Version[];
   branches: string[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  branchFilter: string | null;
 }) {
-  const gapX = 280;
-  const nodeH = 32;
+  const colW = 140;
+  const rowH = 28;
+  const padX = 16;
+  const padY = 40;
 
-  // Build branch map
-  const branchMap: Record<string, Version[]> = {};
-  for (const br of branches) {
-    branchMap[br] = versions.filter((v) => v.branch === br);
-  }
+  // Build positions using topological levels
+  const positions = useMemo(() => {
+    const posMap: Record<string, { x: number; y: number; branchIdx: number }> = {};
+    const branchCols: Record<string, number> = {};
+    branches.forEach((b, i) => { branchCols[b] = i; });
 
-  const branchColumns = Object.entries(branchMap).map(([name, vers]) => ({
-    name,
-    headId: vers.length > 0 ? vers[vers.length - 1].id : '',
-    versions: vers,
-    positions: vers.map((v, i) => {
-      const branchIdx = branches.indexOf(v.branch || name);
-      return {
-        id: v.id,
-        x: 140 + branchIdx * gapX,
-        y: 50 + i * 58,
-        isCheckpoint: v.is_checkpoint || false,
-        isHead: i === vers.length - 1,
-        branch: v.branch || name,
-        shortId: v.short_id || v.id.slice(0, 7),
-      };
-    }),
-  }));
+    const levels: Record<string, number> = {};
+    const allIds = new Set(versions.map((v) => v.id));
 
-  const filteredBranches = branchFilter
-    ? branchColumns.filter((bl) => bl.name === branchFilter)
-    : branchColumns;
+    // Topological sort by levels
+    let settled = false;
+    let pass = 0;
+    do {
+      settled = true;
+      pass++;
+      for (const ver of versions) {
+        if (levels[ver.id] !== undefined) continue;
+        const parentIds = ver.parent_ids || [];
+        let maxParentLevel = -1;
+        let allResolved = true;
+        for (const pid of parentIds) {
+          if (!pid || !allIds.has(pid)) continue;
+          if (levels[pid] === undefined) {
+            allResolved = false;
+          } else {
+            maxParentLevel = Math.max(maxParentLevel, levels[pid]);
+          }
+        }
+        if (allResolved) {
+          levels[ver.id] = maxParentLevel + 1;
+          settled = false;
+        }
+      }
+    } while (!settled && pass < 100);
 
-  const allNodes = branchColumns.flatMap((bl) => bl.positions);
-  const maxY = Math.max(...allNodes.map((n) => n.y), 200) + 60;
-
-  // Edges: within branch (straight vertical), cross-branch (dashed from parent_ids)
-  const edges: Array<{ x1: number; y1: number; x2: number; y2: number; dashed: boolean }> = [];
-  for (const bi of branchColumns) {
-    for (let i = 1; i < bi.positions.length; i++) {
-      const prev = bi.positions[i - 1];
-      const curr = bi.positions[i];
-      edges.push({ x1: prev.x, y1: prev.y + nodeH, x2: curr.x, y2: curr.y, dashed: false });
+    // Fallback
+    let fallback = 0;
+    for (const v of versions) {
+      if (levels[v.id] === undefined) levels[v.id] = fallback++;
     }
-  }
-  for (const v of versions) {
-    const parentIds = v.parent_ids || [];
-    for (const pid of parentIds) {
-      const parentNode = allNodes.find((n) => n.id === pid);
-      const childNode = allNodes.find((n) => n.id === v.id);
-      if (parentNode && childNode && parentNode.x !== childNode.x) {
-        edges.push({ x1: parentNode.x, y1: parentNode.y + nodeH, x2: childNode.x, y2: childNode.y, dashed: true });
+
+    for (const v of versions) {
+      const brIdx = branchCols[v.branch || 'main'] ?? 0;
+      posMap[v.id] = {
+        x: padX + brIdx * colW + colW / 2,
+        y: padY + (levels[v.id] || 0) * rowH,
+        branchIdx: brIdx,
+      };
+    }
+
+    return posMap;
+  }, [versions, branches]);
+
+  const maxY = useMemo(() => {
+    const vals = Object.values(positions);
+    return vals.length > 0 ? Math.max(...vals.map((p) => p.y)) + 60 : 200;
+  }, [positions]);
+
+  const w = Math.max(branches.length * colW + padX * 2 + 60, 460);
+
+  const edges = useMemo(() => {
+    const out: Array<{ x1: number; y1: number; x2: number; y2: number; dashed: boolean; color: string }> = [];
+    for (const v of versions) {
+      const child = positions[v.id];
+      if (!child) continue;
+      const parentIds = v.parent_ids || [];
+      for (const pid of parentIds) {
+        if (!pid) continue;
+        const parent = positions[pid];
+        if (!parent) continue;
+        const sameBranch = parent.branchIdx === child.branchIdx;
+        const color = BRANCH_COLORS_POOL[parent.branchIdx % BRANCH_COLORS_POOL.length];
+        out.push({
+          x1: parent.x,
+          y1: parent.y + 5,
+          x2: child.x,
+          y2: child.y - 5,
+          dashed: !sameBranch,
+          color,
+        });
       }
     }
+    return out;
+  }, [versions, positions]);
+
+  function getBranchHead(branchName: string): string | null {
+    const branchVersions = versions.filter((v) => v.branch === branchName);
+    return branchVersions.length > 0 ? branchVersions[branchVersions.length - 1].id : null;
   }
 
-  const totalWidth = gapX * filteredBranches.length + 200;
-
   return (
-    <div className="overflow-x-auto">
-      <svg width={totalWidth || 400} height={maxY} className="block">
-        {edges.map((e, i) => (
-          <line key={i} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
-            stroke={e.dashed ? 'var(--border)' : 'var(--border-soft)'}
-            strokeWidth={e.dashed ? 1 : 1.5}
-            strokeDasharray={e.dashed ? '4 4' : 'none'}
-          />
-        ))}
-        {filteredBranches.map((bl) => (
-          <g key={bl.name}>
-            <text x={bl.positions[0]?.x || 140} y={28} textAnchor="middle" fill="var(--muted)" fontSize="11" fontFamily="monospace">
-              {bl.name}
-            </text>
-            {bl.positions.map((pos) => {
-              const color = getBranchColor(pos.branch, branches.indexOf(pos.branch));
-              return (
-                <g key={pos.id} onClick={() => onSelect(pos.id)} style={{ cursor: 'pointer' }}>
-                  {pos.isCheckpoint ? (
-                    <polygon
-                      points={`${pos.x},${pos.y + nodeH / 2 - 8} ${pos.x + 10},${pos.y + nodeH / 2} ${pos.x},${pos.y + nodeH / 2 + 8} ${pos.x - 10},${pos.y + nodeH / 2}`}
-                      fill={selectedId === pos.id ? color : 'var(--bg)'}
-                      stroke={color}
-                      strokeWidth={selectedId === pos.id ? 2.5 : 1.5}
-                    />
-                  ) : (
-                    <circle
-                      cx={pos.x} cy={pos.y + nodeH / 2} r={7}
-                      fill={selectedId === pos.id ? color : 'var(--bg)'}
-                      stroke={color}
-                      strokeWidth={selectedId === pos.id ? 2.5 : 1.5}
-                    />
-                  )}
-                  {pos.isHead && (
-                    <rect x={pos.x - 14} y={pos.y} width={28} height={14} rx={7} fill={color} />
-                  )}
-                  {pos.isHead && (
-                    <text x={pos.x} y={pos.y + 10.5} textAnchor="middle" fill="var(--bg)" fontSize="9" fontWeight={500}>HEAD</text>
-                  )}
-                  <text x={pos.x + 16} y={pos.y + nodeH / 2 + 4} fill="var(--muted)" fontSize="10" fontFamily="monospace">
-                    {pos.shortId.slice(0, 5)}
+    <div className="dag-graph-wrap">
+      <svg width={w} height={maxY} viewBox={`0 0 ${w} ${maxY}`} style={{ display: 'block' }}>
+        {/* Branch column headers */}
+        {branches.map((b, i) => {
+          const hx = padX + i * colW + colW / 2;
+          const color = getBranchColor(b);
+          return (
+            <g key={b}>
+              <circle cx={hx} cy={14} r={5} fill={color} />
+              <text
+                x={hx + 10}
+                y={18}
+                fontSize={11}
+                fontFamily={"'Circular','Helvetica Neue',Helvetica,Arial,sans-serif"}
+                fill="#fafafa"
+                fontWeight={500}
+              >
+                {b}
+              </text>
+              {i < branches.length - 1 && (
+                <line
+                  x1={padX + (i + 1) * colW}
+                  y1={0}
+                  x2={padX + (i + 1) * colW}
+                  y2={maxY}
+                  stroke="#242424"
+                  strokeWidth={0.5}
+                  opacity={0.3}
+                />
+              )}
+            </g>
+          );
+        })}
+
+        {/* Edges */}
+        {edges.map((e, i) => {
+          if (e.dashed) {
+            const midY = (e.y1 + e.y2) / 2;
+            return (
+              <path
+                key={i}
+                d={`M${e.x1},${e.y1} C${e.x1},${midY} ${e.x2},${midY} ${e.x2},${e.y2}`}
+                fill="none"
+                stroke={e.color}
+                strokeWidth={1.2}
+                opacity={0.35}
+                strokeDasharray="4,3"
+              />
+            );
+          }
+          return (
+            <line
+              key={i}
+              x1={e.x1}
+              y1={e.y1}
+              x2={e.x2}
+              y2={e.y2}
+              stroke={e.color}
+              strokeWidth={2}
+              opacity={0.55}
+            />
+          );
+        })}
+
+        {/* Nodes */}
+        {versions.map((ver) => {
+          const pos = positions[ver.id];
+          if (!pos) return null;
+          const brColor = getBranchColor(ver.branch || 'main');
+          const isSelected = ver.id === selectedId;
+          const isMerge = (ver.parent_ids || []).filter(Boolean).length > 1;
+          const isHead = ver.id === getBranchHead(ver.branch || 'main');
+          const isCheckpoint = ver.is_checkpoint || false;
+          const r = isCheckpoint ? 4 : 5.5;
+          const fill = isSelected ? '#fafafa' : brColor;
+          const shortId = (ver.short_id || ver.id.slice(0, 7)).slice(0, 5);
+
+          return (
+            <g key={ver.id} style={{ cursor: 'pointer' }} onClick={() => onSelect(ver.id)}>
+              {/* Selection halo */}
+              {isSelected && (
+                <circle cx={pos.x} cy={pos.y} r={r + 5} fill="none" stroke="#3ecf8e" strokeWidth={2} opacity={0.5} />
+              )}
+              {/* Merge outer ring */}
+              {isMerge && (
+                <circle cx={pos.x} cy={pos.y} r={r + 3.5} fill="none" stroke="#fafafa" strokeWidth={1.2} opacity={0.4} />
+              )}
+              {/* HEAD indicator */}
+              {isHead && (
+                <circle cx={pos.x} cy={pos.y} r={r + 3} fill="none" stroke={brColor} strokeWidth={2} opacity={0.7} />
+              )}
+              {/* Node body */}
+              {isCheckpoint ? (
+                <rect
+                  x={pos.x - r}
+                  y={pos.y - r}
+                  width={r * 2}
+                  height={r * 2}
+                  rx={r * 0.5}
+                  fill={fill}
+                  stroke={isSelected ? '#171717' : brColor}
+                  strokeWidth={1.5}
+                  opacity={0.9}
+                />
+              ) : (
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={r}
+                  fill={fill}
+                  stroke={isSelected ? '#171717' : brColor}
+                  strokeWidth={1.5}
+                  opacity={0.9}
+                />
+              )}
+              {/* Commit ID label */}
+              <text
+                x={pos.x + r + 7}
+                y={pos.y + 4}
+                fontSize={9}
+                fontFamily={"'Source Code Pro',Menlo,Monaco,Consolas,monospace"}
+                fill={isSelected ? '#171717' : '#fafafa'}
+                fontWeight={600}
+              >
+                {shortId}
+              </text>
+              {/* HEAD badge */}
+              {isHead && (
+                <>
+                  <rect
+                    x={pos.x + r + 7 + shortId.length * 5.8 + 6}
+                    y={pos.y - 6}
+                    width={32}
+                    height={14}
+                    rx={3}
+                    fill={brColor}
+                    opacity={0.9}
+                  />
+                  <text
+                    x={pos.x + r + 7 + shortId.length * 5.8 + 6 + 16}
+                    y={pos.y + 4}
+                    fontSize={9}
+                    fontFamily={"'Source Code Pro',Menlo,Monaco,Consolas,monospace"}
+                    fill="#0f0f0f"
+                    fontWeight={700}
+                    textAnchor="middle"
+                  >
+                    HEAD
                   </text>
-                </g>
-              );
-            })}
-          </g>
-        ))}
+                </>
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
 }
 
-// ─── Helpers ───
+// ─── Downstream impact ───
 
-function fmtDate(s: string): string {
-  if (!s) return '';
-  const d = new Date(s);
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+const STAGE_ORDER = ['source_content', 'script_rewrite', 'character_management', 'scene_management', 'storyboard', 'image_generation', 'video_generation', 'tts_dubbing', 'shot_composition', 'episode_merge', 'export'];
+
+function getDownstreamStages(stageKey: string | undefined) {
+  const stages = [
+    { key: 'script_rewrite', label: '剧本改写 — 需重新生成', affected: false },
+    { key: 'character_management', label: '角色拆解 — 需重新生成', affected: false },
+    { key: 'scene_management', label: '场景拆解 — 需重新生成', affected: false },
+    { key: 'storyboard', label: '分镜拆解 — 需重新生成', affected: false },
+    { key: 'image_generation', label: '图片生成 — 需重新生成', affected: false },
+    { key: 'tts_dubbing', label: 'TTS 配音 — 需重新生成', affected: false },
+    { key: 'video_generation', label: '视频生成 — 需重新生成', affected: false },
+    { key: 'shot_composition', label: '镜头合成 — 需重新生成', affected: false },
+    { key: 'episode_merge', label: '剧集合并 — 需重新生成', affected: false },
+    { key: 'export', label: '最终导出 — 需重新执行', affected: false },
+  ];
+  const startIdx = STAGE_ORDER.indexOf(stageKey || 'source_content');
+  if (startIdx < 0) return stages;
+  for (let i = startIdx; i < stages.length; i++) {
+    stages[i].affected = true;
+  }
+  return stages;
 }
 
 // ─── Main Page ───
@@ -177,6 +367,7 @@ export default function VersionControlPage() {
   const [showTagModal, setShowTagModal] = useState(false);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  const [diffMode, setDiffMode] = useState<'text' | 'params' | 'frames'>('text');
   const [diffData, setDiffData] = useState<{ from: Version; to: Version } | null>(null);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [merging, setMerging] = useState(false);
@@ -189,14 +380,24 @@ export default function VersionControlPage() {
   // Tag modal
   const [newTagInput, setNewTagInput] = useState('');
 
+  // Active branch (derived from branchFilter or default to first branch)
+  const activeBranch = branchFilter || branches[0] || 'main';
+
   // Load versions
   const loadVersions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await versionsApi.list(projectId, {});
-      setVersions(data.versions || []);
-      setBranches(data.branches || ['main']);
+      const vers = data.versions || [];
+      const brs = data.branches || ['main'];
+      setVersions(vers);
+      setBranches(brs);
+      // Auto-select HEAD of active branch
+      const branchVers = vers.filter((v: Version) => v.branch === (branchFilter || brs[0] || 'main'));
+      if (branchVers.length > 0 && !selectedId) {
+        setSelectedId(branchVers[branchVers.length - 1].id);
+      }
     } catch (err) {
       setError((err as Error).message || 'Failed to load versions');
       setVersions([]);
@@ -204,31 +405,33 @@ export default function VersionControlPage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, branchFilter]);
 
   useEffect(() => {
     loadVersions();
   }, [loadVersions]);
 
   // Filter versions
-  const filtered = versions.filter((v) => {
-    if (stageFilter === 'all') return true;
-    if (stageFilter === 'tagged') return (v.tags || []).length > 0;
-    return v.pipeline_stage === stageFilter;
-  }).filter((v) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (v.short_id || '').toLowerCase().includes(q) ||
-      (v.message || '').toLowerCase().includes(q) ||
-      (v.author_type || '').toLowerCase().includes(q) ||
-      (v.pipeline_stage || '').toLowerCase().includes(q) ||
-      (v.tags || []).some((t: string) => t.toLowerCase().includes(q))
-    );
-  }).filter((v) => {
-    if (!branchFilter) return true;
-    return v.branch === branchFilter;
-  });
+  const filtered = useMemo(() => {
+    return versions.filter((v) => {
+      if (stageFilter === 'all') return true;
+      if (stageFilter === 'tagged') return (v.tags || []).length > 0;
+      return v.pipeline_stage === stageFilter;
+    }).filter((v) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (v.short_id || '').toLowerCase().includes(q) ||
+        (v.message || '').toLowerCase().includes(q) ||
+        (v.author_type || '').toLowerCase().includes(q) ||
+        (v.pipeline_stage || '').toLowerCase().includes(q) ||
+        (v.tags || []).some((t: string) => t.toLowerCase().includes(q))
+      );
+    }).filter((v) => {
+      if (!branchFilter) return true;
+      return v.branch === branchFilter;
+    });
+  }, [versions, stageFilter, search, branchFilter]);
 
   const selected = selectedId ? versions.find((v) => v.id === selectedId) : null;
 
@@ -247,13 +450,32 @@ export default function VersionControlPage() {
     const to = versions.find((v) => v.id === compareIds[1]);
     if (!from || !to) return;
     try {
-      const data = await versionsApi.diff(projectId, from.short_id || from.id, to.short_id || to.id);
-      setDiffData({ from: from, to: to });
+      await versionsApi.diff(projectId, from.short_id || from.id, to.short_id || to.id);
+      setDiffData({ from, to });
     } catch {
       setDiffData({ from, to });
     }
     setShowDiff(true);
+    setDiffMode('text');
   }, [compareIds, versions, projectId]);
+
+  // Compare with selected
+  const compareWithSelected = (id: string) => {
+    if (!selectedId) {
+      toast('请先选择一个版本');
+      return;
+    }
+    if (selectedId === id) {
+      toast('请选择两个不同的版本进行对比');
+      return;
+    }
+    const from = versions.find((v) => v.id === selectedId);
+    const to = versions.find((v) => v.id === id);
+    if (!from || !to) return;
+    setDiffData({ from, to });
+    setShowDiff(true);
+    setDiffMode('text');
+  };
 
   // Handle restore
   const handleRestore = async () => {
@@ -303,6 +525,17 @@ export default function VersionControlPage() {
     }
   };
 
+  // Handle remove tag
+  const handleRemoveTag = async (tag: string) => {
+    if (!selected) return;
+    try {
+      const newTags = (selected.tags || []).filter((t: string) => t !== tag);
+      await versionsApi.tags(projectId, selected.short_id || selected.id, { tags: newTags });
+      toast(`已移除标签「${tag}」`);
+      loadVersions();
+    } catch { /* ignore */ }
+  };
+
   // Handle merge branch to main
   const handleMerge = async () => {
     if (!branchFilter || branchFilter === 'main') return;
@@ -323,14 +556,115 @@ export default function VersionControlPage() {
     }
   };
 
-  // Downstream affected stages (simplified heuristic)
-  const stageOrder = ['source_content', 'script_rewrite', 'character_management', 'scene_management', 'storyboard', 'image_generation', 'video_generation', 'tts_dubbing', 'shot_composition', 'episode_merge', 'export'];
-  const downstreamAffected = selected ? stageOrder.slice(stageOrder.indexOf(selected.pipeline_stage || 'source_content') + 1) : [];
+  // Diff rendering
+  const renderDiffContent = () => {
+    if (!diffData) return null;
+    const { from, to } = diffData;
+
+    if (diffMode === 'params') {
+      const rows = [
+        { field: '阶段', a: STAGE_NAMES[from.pipeline_stage as StageLabel] || from.pipeline_stage, b: STAGE_NAMES[to.pipeline_stage as StageLabel] || to.pipeline_stage },
+        { field: '分支', a: from.branch || 'main', b: to.branch || 'main' },
+        { field: '消息', a: from.message || '—', b: to.message || '—' },
+        { field: '检查点', a: from.is_checkpoint ? '是' : '否', b: to.is_checkpoint ? '是' : '否' },
+        { field: '标签', a: (from.tags || []).join(', ') || '—', b: (to.tags || []).join(', ') || '—' },
+      ];
+      return (
+        <div className="diff-pane" style={{ flex: 1, borderRight: 'none' }}>
+          <div className="diff-pane-label"><span>参数对比</span></div>
+          <table className="diff-param-table">
+            <thead>
+              <tr><th>参数</th><th>{from.short_id || from.id.slice(0, 7)}</th><th>{to.short_id || to.id.slice(0, 7)}</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const changed = r.a !== r.b;
+                return (
+                  <tr key={r.field}>
+                    <td>{r.field}</td>
+                    <td className={changed ? 'old' : 'same'}>{r.a}</td>
+                    <td className={changed ? 'new' : 'same'}>{r.b}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    if (diffMode === 'frames') {
+      const shots = ['S01 · 特写 · 戒指', 'S03 · 中景 · 悬崖', 'S07 · 近景 · 药老现身', 'S12 · 全景 · 离别'];
+      return (
+        <>
+          <div className="diff-pane">
+            <div className="diff-pane-label"><span>{from.short_id || from.id.slice(0, 7)} · {from.branch || 'main'}</span><span style={{ color: 'var(--fg-2)' }}>{from.author_type === 'ai' ? 'AI' : 'Human'} · {fmtDate(from.created_at || '')}</span></div>
+            {shots.map((s) => (
+              <div key={s} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <div style={{ width: 60, height: 34, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'var(--fg-2)' }}>预览</div>
+                <span style={{ fontSize: 12 }}>{s}</span>
+              </div>
+            ))}
+          </div>
+          <div className="diff-pane">
+            <div className="diff-pane-label"><span>{to.short_id || to.id.slice(0, 7)} · {to.branch || 'main'}</span><span style={{ color: 'var(--fg-2)' }}>{to.author_type === 'ai' ? 'AI' : 'Human'} · {fmtDate(to.created_at || '')}</span></div>
+            {shots.map((s) => (
+              <div key={s} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <div style={{ width: 60, height: 34, background: 'var(--bg)', border: '1px solid var(--accent)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'var(--accent)' }}>预览</div>
+                <span style={{ fontSize: 12 }}>{s}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    // Text diff (default)
+    const lines = [
+      { t: 'ctx', text: '@@ 斗破苍穹 · 第2集「药老现身」· 剧本对话 @@' },
+      { t: 'ctx', text: ' ' },
+      { t: 'ctx', text: '  第1段 [萧炎·内心独白]' },
+      { t: 'ctx', text: '  这戒指...到底是什么来头？三年了，我的斗之气旋一日不如一日...' },
+      { t: 'ctx', text: ' ' },
+      { t: 'ctx', text: '  第3段 [场景·萧家后山]' },
+      { t: 'ctx', text: '  萧炎盘坐在悬崖边，落日余晖洒在他略显稚嫩却坚毅的脸上。' },
+      { t: 'ctx', text: ' ' },
+      { t: 'ctx', text: '  第7段 [药老·首次现身]' },
+      { t: 'rem', text: '- 药老（灵魂体）：「小子，你可知道这戒指里住着谁？」（语气：戏谑）' },
+      { t: 'add', text: '+ 药老（灵魂体）：「小娃娃...你可知道，老夫在这戒指里，等了多久？」（语气：苍老、试探、略带感慨）' },
+      { t: 'ctx', text: ' ' },
+      { t: 'ctx', text: '  第12段 [药老·解释来历]' },
+      { t: 'rem', text: '- 药老：「老夫生前乃是八品炼药师，你这小娃娃的资质...勉强算个中上。」' },
+      { t: 'add', text: '+ 药老（灵魂体缓缓漂浮至与萧炎视线齐平）：「生前，老夫乃是八品炼药师。你的资质...中上，但也够了。」（动作描述：药老的灵魂体微微波动，像是在回忆遥远的往事）' },
+    ];
+    const leftHtml = lines.map((l, i) => (
+      <div key={i} className={`diff-line ${l.t}`}>{l.text}</div>
+    ));
+
+    return (
+      <>
+        <div className="diff-pane">
+          <div className="diff-pane-label">
+            <span>{from.short_id || from.id.slice(0, 7)} · {from.branch || 'main'}</span>
+            <span style={{ color: 'var(--fg-2)' }}>{from.author_type === 'ai' ? 'AI' : 'Human'} · {fmtDate(from.created_at || '')}</span>
+          </div>
+          {leftHtml}
+        </div>
+        <div className="diff-pane">
+          <div className="diff-pane-label">
+            <span>{to.short_id || to.id.slice(0, 7)} · {to.branch || 'main'}</span>
+            <span style={{ color: 'var(--fg-2)' }}>{to.author_type === 'ai' ? 'AI' : 'Human'} · {fmtDate(to.created_at || '')}</span>
+          </div>
+          {leftHtml}
+        </div>
+      </>
+    );
+  };
 
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-bg">
-        <div className="flex items-center gap-3 px-6 py-3 border-b border-border-soft">
+        <div className="vc-topbar">
           <div className="h-4 w-20 bg-surface rounded animate-pulse" />
           <div className="h-6 w-32 bg-surface rounded animate-pulse" />
         </div>
@@ -344,7 +678,7 @@ export default function VersionControlPage() {
   if (error) {
     return (
       <div className="flex flex-col h-full bg-bg">
-        <div className="flex items-center gap-3 px-6 py-3 border-b border-border-soft">
+        <div className="vc-topbar">
           <button onClick={() => router.push(`/short-series/projects/${projectId}`)} className="text-sm text-muted hover:text-fg-2 flex items-center gap-1">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
             返回
@@ -358,32 +692,59 @@ export default function VersionControlPage() {
     );
   }
 
+  const selectedBranchColor = selected ? getBranchColor(selected.branch || 'main') : '#3ecf8e';
+  const downstreamAffected = selected ? getDownstreamStages(selected.pipeline_stage) : [];
+
   return (
     <div className="flex flex-col h-full bg-bg">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border-soft">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push(`/short-series/projects/${projectId}`)}
-            className="text-sm text-muted hover:text-fg-2 flex items-center gap-1"
+      {/* ── Topbar ── */}
+      <div className="vc-topbar">
+        <div className="vc-topbar-left">
+          {/* Branch selector */}
+          <div
+            className="branch-select"
+            onClick={() => { /* Could open branch dropdown */ }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            返回
-          </button>
-          <h2 className="text-lg font-normal text-fg">版本控制</h2>
-          <span className="text-xs text-muted">{versions.length} 个版本 · {branches.length} 个分支</span>
+            <span className="branch-dot" style={{ background: getBranchColor(activeBranch) }} />
+            <span>{activeBranch}</span>
+            <svg className="branch-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          {/* Search */}
+          <input
+            type="text"
+            className="vc-search-input"
+            placeholder="搜索提交ID/消息/作者/阶段/标签..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <button className="btn btn-ghost btn-sm text-xs" onClick={() => setShowBranchModal(true)}>
-            新建分支
+        <div className="vc-topbar-right">
+          {/* Filter chips */}
+          <div className="filter-bar">
+            {STAGE_FILTER_KEYS.map((f) => (
+              <button
+                key={f.key}
+                className={`filter-chip ${stageFilter === f.key ? 'on' : ''}`}
+                onClick={() => setStageFilter(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {/* Branch filter toggle */}
+          <button
+            className="btn btn-ghost btn-sm text-xs"
+            onClick={() => setBranchFilter(branchFilter ? null : activeBranch)}
+            style={{ color: 'var(--fg-2)', whiteSpace: 'nowrap' }}
+            title="仅显示当前分支"
+          >
+            {branchFilter ? `☰ ${activeBranch}` : '☰ 所有分支'}
           </button>
-          {branchFilter && branchFilter !== 'main' && (
-            <button className="btn btn-brand btn-sm text-xs" onClick={() => setShowMergeModal(true)}>
-              合并到 main
-            </button>
-          )}
+          {/* New branch button */}
+          <button className="btn btn-brand btn-sm text-xs" onClick={() => setShowBranchModal(true)} style={{ whiteSpace: 'nowrap' }}>
+            + 分支
+          </button>
+          {/* Compare button */}
           {compareIds.length === 2 && (
             <button className="btn btn-brand btn-sm text-xs" onClick={handleShowDiff}>
               查看差异
@@ -392,239 +753,268 @@ export default function VersionControlPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Main content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* DAG Graph area */}
-          <div className="h-[300px] border-b border-border-soft overflow-auto bg-surface p-4">
-            <h3 className="text-sm font-medium text-fg mb-4">提交图谱</h3>
-            {versions.length > 0 ? (
-              <DAGGraph versions={versions} branches={branches} selectedId={selectedId} onSelect={setSelectedId} branchFilter={branchFilter} />
-            ) : (
-              <p className="text-sm text-muted text-center py-12">暂无版本记录。完成首个 Pipeline 阶段后将自动创建版本。</p>
-            )}
-          </div>
-
-          {/* Filters */}
-          <div className="flex items-center gap-3 px-6 py-3 border-b border-border-soft bg-bg">
-            <input
-              type="text"
-              placeholder="搜索提交ID/消息/作者/阶段/标签..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="text-xs bg-bg border border-border rounded-sm px-3 py-1.5 text-fg-2 outline-none focus:border-accent w-[320px] placeholder:text-meta"
+      {/* ── Content ── */}
+      <div className="vc-content">
+        {/* DAG + Version List */}
+        <div className="dag-panel">
+          {/* DAG Graph */}
+          {versions.length > 0 ? (
+            <DAGGraph
+              versions={versions}
+              branches={branches}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
             />
-            <div className="flex gap-1.5 overflow-x-auto">
-              {STAGE_FILTER_KEYS.map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setStageFilter(key)}
-                  className={`badge cursor-pointer whitespace-nowrap text-[10px] ${stageFilter === key ? 'badge-accent' : 'badge-muted'}`}
-                >
-                  {key === 'all' ? '全部' : key === 'tagged' ? '已标记' : STAGE_NAMES[key as StageLabel]}
-                </button>
-              ))}
+          ) : (
+            <div className="dag-graph-wrap">
+              <p className="text-sm text-muted text-center py-12">暂无版本记录。完成首个 Pipeline 阶段后将自动创建版本。</p>
             </div>
-            <div className="flex gap-1.5 ml-auto">
-              <button
-                onClick={() => setBranchFilter(null)}
-                className={`badge cursor-pointer text-[10px] ${!branchFilter ? 'badge-accent' : 'badge-muted'}`}
-              >
-                全部分支
-              </button>
-              {branches.map((br, i) => (
-                <button
-                  key={br}
-                  onClick={() => setBranchFilter(br)}
-                  className={`badge cursor-pointer text-[10px] ${branchFilter === br ? 'badge-accent' : 'badge-muted'}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-pill mr-1 inline-block" style={{ backgroundColor: getBranchColor(br, i) }} />
-                  {br}
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
-          {/* Version list */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
+          {/* Version List */}
+          <div className="version-list-wrap">
+            <div className="version-list-header">
+              <span className="version-count">共 <strong>{filtered.length}</strong> 个版本</span>
+              <span style={{ fontSize: 11, color: 'var(--fg-2)' }}>
+                {compareIds.length === 2 ? (
+                  <span>已选择 2 个版本，<button className="text-accent underline" onClick={handleShowDiff}>点击对比</button></span>
+                ) : compareIds.length === 1 ? (
+                  <span>选中 1 个版本，再选 1 个进行对比</span>
+                ) : (
+                  <span>勾选复选框选择 2 个版本进行对比</span>
+                )}
+              </span>
+            </div>
+
             {filtered.length === 0 ? (
-              <p className="text-sm text-muted text-center py-12">无匹配的版本记录</p>
-            ) : (
-              <div className="space-y-2">
-                {filtered.map((v) => {
-                  const branchIdx = branches.indexOf(v.branch || 'main');
-                  const branchColor = getBranchColor(v.branch || 'main', branchIdx);
-                  const isHead = versions.filter((x) => x.branch === v.branch).slice(-1)[0]?.id === v.id;
-                  return (
-                    <div
-                      key={v.id}
-                      className={`bg-surface border rounded-sm p-4 transition-all cursor-pointer
-                        ${selectedId === v.id ? 'border-accent' : 'border-border hover:border-border'}
-                      `}
-                      onClick={() => setSelectedId(v.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          onClick={(e) => { e.stopPropagation(); handleCompareSelect(v.id); }}
-                          className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 cursor-pointer
-                            ${compareIds.includes(v.id) ? 'bg-accent border-accent' : 'border-border-soft hover:border-border'}
-                          `}
-                        >
-                          {compareIds.includes(v.id) && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                          )}
-                        </div>
-                        <div className="w-2.5 h-2.5 rounded-pill flex-shrink-0" style={{ backgroundColor: branchColor }} />
-                        <span className="font-mono text-xs text-accent font-medium w-[60px]">{v.short_id || v.id.slice(0, 7)}</span>
-                        <span className="text-sm text-fg flex-1 truncate">{v.message || '—'}</span>
-                        {v.is_checkpoint && (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--warn)" stroke="var(--warn)" strokeWidth="1" className="flex-shrink-0"><polygon points="12 2 15 9 22 9 16 14 18 21 12 17 6 21 8 14 2 9 9 9"/></svg>
-                        )}
-                        {isHead && (
-                          <span className="badge badge-accent text-[9px]">HEAD</span>
-                        )}
-                        <span className="badge badge-muted text-[10px]">{STAGE_NAMES[v.pipeline_stage as StageLabel] || v.pipeline_stage}</span>
-                        {(v.tags || []).map((t: string) => (
-                          <span key={t} className="text-[10px] bg-border-soft text-fg-2 rounded-sm px-1.5 py-0.5">{t}</span>
-                        ))}
-                        <span className="text-xs text-muted flex items-center gap-1">
-                          {v.author_type === 'ai' ? (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
-                          ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                          )}
-                          {v.author_type === 'ai' ? 'AI' : 'Human'}
-                        </span>
-                        <span className="text-xs text-muted w-[110px] text-right">{fmtDate(v.created_at || '')}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: 'var(--fg-2)', fontSize: 'var(--text-sm)' }}>
+                无匹配的版本记录
               </div>
+            ) : (
+              filtered.map((v) => {
+                const branchColor = getBranchColor(v.branch || 'main');
+                const isHead = versions.filter((x) => x.branch === v.branch).slice(-1)[0]?.id === v.id;
+                const isMerge = (v.parent_ids || []).filter(Boolean).length > 1;
+                const authorInitial = v.author_type === 'ai' ? 'AI' : v.author_id ? v.author_id.slice(0, 2).toUpperCase() : 'HU';
+                const avatarBg = v.author_type === 'ai' ? '#6366f1' : 'var(--accent)';
+                const tags = v.tags || [];
+
+                return (
+                  <div
+                    key={v.id}
+                    className={`vc-row ${selectedId === v.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedId(v.id)}
+                  >
+                    {/* Checkbox */}
+                    <div className="vc-check">
+                      <input
+                        type="checkbox"
+                        checked={compareIds.includes(v.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => handleCompareSelect(v.id)}
+                        title="选择用于对比"
+                      />
+                    </div>
+                    {/* Graph dot */}
+                    <div className="vc-graph-col">
+                      {isMerge ? (
+                        <svg width="14" height="14">
+                          <circle cx="7" cy="7" r="5" fill={branchColor} stroke="#fafafa" strokeWidth="1.5" />
+                        </svg>
+                      ) : (
+                        <div className={`vc-dot ${v.is_checkpoint ? 'checkpoint' : ''}`} style={{ background: branchColor }} />
+                      )}
+                    </div>
+                    {/* Main content */}
+                    <div className="vc-main">
+                      <div className="vc-header">
+                        <span className="vc-id">{v.short_id || v.id.slice(0, 7)}</span>
+                        <span style={{ fontSize: 10, color: branchColor, fontWeight: 600 }}>{v.branch || 'main'}</span>
+                        {v.is_checkpoint && <span className="vc-stage-badge">CHECKPOINT</span>}
+                        <span className="vc-stage-badge">{STAGE_NAMES[v.pipeline_stage as StageLabel] || v.pipeline_stage}</span>
+                        {isMerge && <span style={{ fontSize: 10, color: 'var(--warn)', fontWeight: 600 }}>MERGE</span>}
+                      </div>
+                      <div className="vc-message">{v.message || '—'}</div>
+                      <div className="vc-meta-row">
+                        <span className="vc-author">
+                          <span className="vc-author-avatar" style={{ background: avatarBg }}>{authorInitial}</span>
+                          {v.author_type === 'ai' ? 'AI Agent' : v.author_id || 'Human'}
+                        </span>
+                        <span className="vc-time">{fmtDate(v.created_at || '')}</span>
+                        {v.metadata && (v.metadata as Record<string, unknown>).model ? (
+                          <span style={{ fontSize: 10, color: 'var(--fg-2)' }}>{String((v.metadata as Record<string, unknown>).model)}</span>
+                        ) : null}
+                        {v.metadata && (v.metadata as Record<string, unknown>).cost !== undefined && Number((v.metadata as Record<string, unknown>).cost) > 0 ? (
+                          <span style={{ fontSize: 10, color: 'var(--fg-2)' }}>${Number((v.metadata as Record<string, unknown>).cost).toFixed(2)}</span>
+                        ) : null}
+                      </div>
+                      {tags.length > 0 && (
+                        <div className="vc-tags">
+                          {tags.map((t: string) => {
+                            const cls = t === 'approved' || t === 'release' ? 'approved' : t === 'reviewed' ? 'reviewed' : 'experiment';
+                            return <span key={t} className={`vc-tag ${cls}`}>{t}</span>;
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {/* Actions */}
+                    <div className="vc-actions">
+                      <button onClick={(e) => { e.stopPropagation(); compareWithSelected(v.id); }}>对比</button>
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedId(v.id); setShowRestoreConfirm(true); }}>恢复</button>
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedId(v.id); setShowTagModal(true); }}>标签</button>
+                      {(v.branch === activeBranch) && (
+                        <button className="danger" onClick={(e) => { e.stopPropagation(); setSelectedId(v.id); setShowBranchModal(true); }}>分支</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
 
-        {/* Right: Detail panel */}
-        <div className="w-[400px] flex-shrink-0 border-l border-border-soft overflow-y-auto bg-surface">
-          {selected ? (() => {
-            const branchIdx = branches.indexOf(selected.branch || 'main');
-            const branchColor = getBranchColor(selected.branch || 'main', branchIdx);
-            const changes = selected.changes as Record<string, number> || {};
-            const metadata = selected.metadata as Record<string, unknown> || {};
-            return (
-              <div className="p-5 space-y-5">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-3 h-3 rounded-pill" style={{ backgroundColor: branchColor }} />
-                    <span className="font-mono text-sm text-accent font-medium">{selected.short_id || selected.id.slice(0, 7)}</span>
-                    <span className="badge badge-muted text-[10px]">{selected.branch || 'main'}</span>
-                  </div>
-                  <p className="text-lg font-normal text-fg">{selected.message || '—'}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted">
-                    <span>{selected.author_type === 'ai' ? 'AI Agent' : 'Human'}</span>
-                    <span>{fmtDate(selected.created_at || '')}</span>
-                    <span className="badge badge-muted text-[10px]">{STAGE_NAMES[selected.pipeline_stage as StageLabel] || selected.pipeline_stage}</span>
-                  </div>
+        {/* ── Detail Panel ── */}
+        <div className="detail-panel">
+          {selected ? (
+            <>
+              {/* Header */}
+              <div className="detail-section">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>版本详情</span>
+                  <button onClick={() => setSelectedId(null)} style={{ background: 'none', border: 'none', color: 'var(--fg-2)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>&times;</button>
                 </div>
-
-                <div>
-                  <p className="text-xs text-meta uppercase mb-2">变更摘要</p>
-                  <div className="flex gap-4 text-sm">
-                    <span className="text-fg-2">文件 <span className="text-fg font-medium">{changes.files || 0}</span></span>
-                    <span className="text-success">+{changes.additions || 0}</span>
-                    <span className="text-danger">-{changes.deletions || 0}</span>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="vc-id" style={{ fontSize: 16 }}>{selected.short_id || selected.id.slice(0, 7)}</span>
+                  <span style={{ fontSize: 11, color: selectedBranchColor, fontWeight: 600, background: `color-mix(in oklab, ${selectedBranchColor}, transparent 88%)`, padding: '2px 8px', borderRadius: 'var(--radius-pill)' }}>
+                    {selected.branch || 'main'}
+                  </span>
                 </div>
+                <div className="detail-message">{selected.message || '—'}</div>
+              </div>
 
-                <div>
-                  <p className="text-xs text-meta uppercase mb-2">元数据</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(() => { const v = metadata.model; if (v) return (
-                      <div className="bg-bg border border-border rounded-sm p-2">
-                        <p className="text-[10px] text-meta">模型</p>
-                        <p className="text-sm text-fg-2">{String(v)}</p>
-                      </div>
-                    ); return null; })()}
-                    {(() => { const v = metadata.supplier; if (v) return (
-                      <div className="bg-bg border border-border rounded-sm p-2">
-                        <p className="text-[10px] text-meta">供应商</p>
-                        <p className="text-sm text-fg-2">{String(v)}</p>
-                      </div>
-                    ); return null; })()}
-                    {metadata.cost !== undefined && (
-                      <div className="bg-bg border border-border rounded-sm p-2">
-                        <p className="text-[10px] text-meta">费用</p>
-                        <p className="text-sm text-fg-2">¥{Number(metadata.cost).toFixed(2)}</p>
-                      </div>
-                    )}
-                    {metadata.qualityScore !== undefined && (
-                      <div className="bg-bg border border-border rounded-sm p-2">
-                        <p className="text-[10px] text-meta">质量评分</p>
-                        <p className={`text-sm ${Number(metadata.qualityScore) >= 0.9 ? 'text-success' : Number(metadata.qualityScore) >= 0.8 ? 'text-warn' : 'text-danger'}`}>
-                          {(Number(metadata.qualityScore) * 100).toFixed(0)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+              {/* Commit Info */}
+              <div className="detail-section">
+                <span className="detail-section-title">提交信息</span>
+                <div className="detail-row">
+                  <span className="detail-label">作者</span>
+                  <span className="detail-value">{selected.author_type === 'ai' ? 'AI · ' : ''}{selected.author_id || 'Unknown'}</span>
                 </div>
-
-                <div>
-                  <p className="text-xs text-meta uppercase mb-2">标签</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(selected.tags || []).length > 0 ? (selected.tags || []).map((t: string) => (
-                      <span key={t} className="badge badge-muted text-[10px]">{t}</span>
-                    )) : <span className="text-xs text-muted">无</span>}
-                    <button onClick={() => setShowTagModal(true)} className="badge badge-muted text-[10px] cursor-pointer hover:border-accent border border-transparent">
-                      + 管理标签
-                    </button>
-                  </div>
+                <div className="detail-row">
+                  <span className="detail-label">时间</span>
+                  <span className="detail-value mono">{fullTime(selected.created_at || '')}</span>
                 </div>
+                <div className="detail-row">
+                  <span className="detail-label">类型</span>
+                  <span className="detail-value">{selected.is_checkpoint ? '自动快照' : '手动提交'} {((selected.parent_ids || []).filter(Boolean).length > 1) ? ' · 合并提交' : ''}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">父提交</span>
+                  <span className="detail-value mono">{(selected.parent_ids || []).filter(Boolean).join(', ') || '—'}</span>
+                </div>
+              </div>
 
-                {downstreamAffected.length > 0 && (
-                  <div>
-                    <p className="text-xs text-meta uppercase mb-2">下游影响分析</p>
-                    <div className="bg-[color-mix(in_oklab,var(--warn)_8%,transparent)] border border-[color-mix(in_oklab,var(--warn)_20%,transparent)] rounded-sm p-3">
-                      <p className="text-xs text-warn mb-2">恢复此版本将影响以下阶段:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {downstreamAffected.map((s) => (
-                          <span key={s} className="badge badge-warn text-[10px]">{STAGE_NAMES[s as StageLabel] || s}</span>
-                        ))}
-                      </div>
+              {/* Changes */}
+              <div className="detail-section">
+                <span className="detail-section-title">变更内容</span>
+                <div className="detail-row">
+                  <span className="detail-label">阶段</span>
+                  <span className="detail-value">{STAGE_NAMES[selected.pipeline_stage as StageLabel] || selected.pipeline_stage}</span>
+                </div>
+                {selected.changes && Object.keys(selected.changes).length > 0 && (
+                  <>
+                    <div className="detail-row">
+                      <span className="detail-label">文件变更</span>
+                      <span className="detail-value mono">
+                        +{selected.changes.additions || 0} / -{selected.changes.deletions || 0}
+                        {' '}({selected.changes.files || 0} files)
+                      </span>
                     </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2 border-t border-border-soft">
-                  <button className="btn btn-brand btn-sm flex-1" onClick={() => setShowRestoreConfirm(true)}>
-                    恢复到此版本
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setCompareIds([selected.id])}>
-                    选择对比
-                  </button>
-                </div>
-
-                {compareIds.length === 2 && (
-                  <div className="bg-bg border border-accent rounded-sm p-3">
-                    <p className="text-xs text-fg-2 mb-2">
-                      已选择 2 个版本进行对比
-                    </p>
-                    <button className="btn btn-brand btn-sm w-full" onClick={handleShowDiff}>
-                      查看差异
-                    </button>
-                  </div>
+                  </>
                 )}
               </div>
-            );
-          })() : (
-            <div className="flex items-center justify-center h-full text-muted text-sm p-5">
-              点击左侧版本或图谱节点查看详情
-            </div>
+
+              {/* Metadata */}
+              {selected.metadata && Object.keys(selected.metadata).length > 0 ? (
+                <div className="detail-section">
+                  <span className="detail-section-title">生成元数据</span>
+                  {(selected.metadata as Record<string, unknown>).model ? (
+                    <div className="detail-row">
+                      <span className="detail-label">模型</span>
+                      <span className="detail-value mono">{String((selected.metadata as Record<string, unknown>).model)}</span>
+                    </div>
+                  ) : null}
+                  {(selected.metadata as Record<string, unknown>).supplier ? (
+                    <div className="detail-row">
+                      <span className="detail-label">供应商</span>
+                      <span className="detail-value">{String((selected.metadata as Record<string, unknown>).supplier)}</span>
+                    </div>
+                  ) : null}
+                  {(selected.metadata as Record<string, unknown>).cost !== undefined && Number((selected.metadata as Record<string, unknown>).cost) > 0 ? (
+                    <div className="detail-row">
+                      <span className="detail-label">费用</span>
+                      <span className="detail-value mono">${Number((selected.metadata as Record<string, unknown>).cost).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {(selected.metadata as Record<string, unknown>).qualityScore !== undefined ? (
+                    <div className="detail-row">
+                      <span className="detail-label">质量评分</span>
+                      <span className="detail-value">{Number((selected.metadata as Record<string, unknown>).qualityScore)}/100</span>
+                    </div>
+                  ) : null}
+                  {(selected.metadata as Record<string, unknown>).duration !== undefined ? (
+                    <div className="detail-row">
+                      <span className="detail-label">时长</span>
+                      <span className="detail-value mono">{String((selected.metadata as Record<string, unknown>).duration)}s</span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Tags */}
+              <div className="detail-section">
+                <span className="detail-section-title">标签</span>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {(selected.tags || []).length > 0 ? (selected.tags || []).map((t: string) => {
+                    const cls = t === 'approved' || t === 'release' ? 'approved' : t === 'reviewed' ? 'reviewed' : 'experiment';
+                    return (
+                      <span key={t} className={`vc-tag ${cls}`} style={{ fontSize: 11, padding: '2px 8px', cursor: 'pointer' }} onClick={() => handleRemoveTag(t)} title="点击移除">
+                        {t} ✕
+                      </span>
+                    );
+                  }) : <span style={{ color: 'var(--fg-2)', fontSize: 12 }}>无标签</span>}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="detail-actions">
+                <button className="primary" onClick={() => setShowRestoreConfirm(true)}>恢复到此版本</button>
+                <button onClick={() => { setCompareIds([selected.id]); }}>选择对比</button>
+                <button onClick={() => setShowTagModal(true)}>标签</button>
+                <button onClick={() => setShowBranchModal(true)}>创建分支</button>
+              </div>
+
+              {/* Downstream impact */}
+              {downstreamAffected.length > 0 && (
+                <div className="detail-section">
+                  <span className="detail-section-title">恢复影响分析</span>
+                  <div className="impact-list">
+                    {downstreamAffected.map((s) => (
+                      <div key={s.key} className="impact-item">
+                        <span className={`impact-dot ${s.affected ? 'warn' : 'ok'}`} />
+                        {s.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="detail-empty">点击左侧版本或图谱节点查看详情</div>
           )}
         </div>
       </div>
 
-      {/* ── Restore Confirmation Modal ── */}
+      {/* ─── Restore Confirmation Modal ── */}
       {showRestoreConfirm && selected && (
         <div className="modal-overlay" onClick={() => setShowRestoreConfirm(false)}>
           <div className="modal-box !max-w-[440px]" onClick={(e) => e.stopPropagation()}>
@@ -635,7 +1025,7 @@ export default function VersionControlPage() {
             {downstreamAffected.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-4">
                 {downstreamAffected.map((s) => (
-                  <span key={s} className="badge badge-warn text-[10px]">{STAGE_NAMES[s as StageLabel] || s}</span>
+                  <span key={s.key} className="badge badge-warn text-[10px]">{s.label}</span>
                 ))}
               </div>
             )}
@@ -726,16 +1116,7 @@ export default function VersionControlPage() {
               {(selected.tags || []).length > 0 ? (selected.tags || []).map((t: string) => (
                 <div key={t} className="flex items-center justify-between bg-bg border border-border rounded-sm px-3 py-2">
                   <span className="text-sm text-fg-2">{t}</span>
-                  <button className="text-xs text-muted hover:text-danger"
-                    onClick={async () => {
-                      const newTags = (selected.tags || []).filter((x: string) => x !== t);
-                      try {
-                        await versionsApi.tags(projectId, selected.short_id || selected.id, { tags: newTags });
-                        toast(`已移除标签「${t}」`);
-                        loadVersions();
-                      } catch { /* ignore */ }
-                    }}
-                  >移除</button>
+                  <button className="text-xs text-muted hover:text-danger" onClick={() => handleRemoveTag(t)}>移除</button>
                 </div>
               )) : <p className="text-sm text-muted">暂无标签</p>}
             </div>
@@ -759,62 +1140,22 @@ export default function VersionControlPage() {
 
       {/* ── Diff Overlay ── */}
       {showDiff && diffData && (
-        <div className="modal-overlay" onClick={() => setShowDiff(false)}>
-          <div className="fixed inset-4 bg-bg border border-border rounded-sm flex flex-col shadow-raised z-50" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border-soft">
-              <div className="flex items-center gap-4">
-                <h3 className="text-lg font-normal text-fg">差异对比</h3>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-danger font-mono">{diffData.from.short_id || diffData.from.id.slice(0, 7)}</span>
-                  <span className="text-muted">← →</span>
-                  <span className="text-success font-mono">{diffData.to.short_id || diffData.to.id.slice(0, 7)}</span>
-                </div>
-              </div>
-              <button onClick={() => setShowDiff(false)} className="btn btn-ghost btn-sm">✕</button>
+        <div className="diff-overlay">
+          <div className="diff-toolbar">
+            <div className="diff-toolbar-title">
+              对比 <span>{diffData.from.short_id || diffData.from.id.slice(0, 7)}</span> ← → <span>{diffData.to.short_id || diffData.to.id.slice(0, 7)}</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="flex gap-6 mb-6">
-                <div className="bg-bg border border-border rounded-sm px-4 py-3">
-                  <p className="text-[10px] text-meta uppercase">文件变更</p>
-                  <p className="text-lg font-medium text-fg">{0}</p>
-                </div>
-                <div className="bg-bg border border-border rounded-sm px-4 py-3">
-                  <p className="text-[10px] text-meta uppercase">新增行</p>
-                  <p className="text-lg font-medium text-success">+{0}</p>
-                </div>
-                <div className="bg-bg border border-border rounded-sm px-4 py-3">
-                  <p className="text-[10px] text-meta uppercase">删除行</p>
-                  <p className="text-lg font-medium text-danger">-{0}</p>
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="diff-tabs">
+                <button className={diffMode === 'text' ? 'active' : ''} onClick={() => setDiffMode('text')}>文本对比</button>
+                <button className={diffMode === 'params' ? 'active' : ''} onClick={() => setDiffMode('params')}>参数对比</button>
+                <button className={diffMode === 'frames' ? 'active' : ''} onClick={() => setDiffMode('frames')}>帧对比</button>
               </div>
-              <h4 className="text-sm font-medium text-fg mb-3">参数对比</h4>
-              <table>
-                <thead>
-                  <tr>
-                    <th>参数</th><th>旧值</th><th>新值</th><th>变化</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { label: '阶段', from: STAGE_NAMES[diffData.from.pipeline_stage as StageLabel] || diffData.from.pipeline_stage, to: STAGE_NAMES[diffData.to.pipeline_stage as StageLabel] || diffData.to.pipeline_stage },
-                    { label: '分支', from: diffData.from.branch || 'main', to: diffData.to.branch || 'main' },
-                    { label: '消息', from: diffData.from.message || '—', to: diffData.to.message || '—' },
-                    { label: '检查点', from: diffData.from.is_checkpoint ? '是' : '否', to: diffData.to.is_checkpoint ? '是' : '否' },
-                    { label: '标签', from: (diffData.from.tags || []).join(', ') || '—', to: (diffData.to.tags || []).join(', ') || '—' },
-                  ].map((row) => {
-                    const changed = row.from !== row.to;
-                    return (
-                      <tr key={row.label} className={changed ? '' : 'opacity-50'}>
-                        <td className="text-sm text-fg font-medium">{row.label}</td>
-                        <td className={`text-sm ${changed ? 'text-danger line-through' : 'text-muted'}`}>{row.from}</td>
-                        <td className={`text-sm ${changed ? 'text-success' : 'text-muted'}`}>{row.to}</td>
-                        <td>{changed ? <span className="badge badge-warn text-[10px]">已变更</span> : <span className="text-[10px] text-muted">—</span>}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowDiff(false)} style={{ color: 'var(--fg-2)' }}>✕ 关闭</button>
             </div>
+          </div>
+          <div className="diff-body">
+            {renderDiffContent()}
           </div>
         </div>
       )}

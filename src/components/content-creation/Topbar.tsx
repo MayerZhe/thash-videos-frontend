@@ -72,60 +72,64 @@ export default function Topbar({ projectTitle, episodeNum, stageLabel, stageProg
     }
   };
 
+  const isRunning = stageProgress != null;
+
   return (
-    <header className="studio-topbar">
-      <div className="studio-topbar-main">
-        <button className="topbar-back" onClick={() => router.back()}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          返回
-        </button>
-
-        {/* Tool mode buttons */}
-        <div className="tool-modes">
-          {TOOL_MODES.map((t) => (
-            <button
-              key={t.key}
-              className={`tool-mode-btn ${isToolActive(t.key) ? 'active' : ''}`}
-              onClick={() => handleToolMode(t.key)}
-              title={t.label}
-            >
-              {t.icon}
-              <span className={`tool-badge ${isToolActive(t.key) ? 'show' : ''}`} />
-            </button>
-          ))}
+    <header className="topbar">
+      {/* Brand */}
+      <a className="topbar-brand" href="/short-series/projects">
+        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-on)', fontSize: 13, fontWeight: 700 }}>
+          Th
         </div>
+        <span>视觉工厂</span>
+      </a>
 
-        {/* Studio identity */}
-        <div className="studio-identity">
-          <span className="studio-title">{projectTitle || '未命名项目'}</span>
-          {episodeNum != null && (
-            <span className="studio-episode-chip">第 {episodeNum} 集</span>
-          )}
-          <div className="studio-meta-row">
-            {stageLabel && (
-              <span className="studio-meta-pill is-progress">{stageLabel}</span>
-            )}
-            {stageProgress && (
-              <span className="studio-meta-inline">{stageProgress}</span>
-            )}
-          </div>
-        </div>
+      <div className="topbar-divider" />
+
+      {/* Project title */}
+      <div className="topbar-title">{projectTitle || '未命名项目'}</div>
+
+      {/* Status indicator */}
+      <div className="topbar-status">
+        <div className={`status-dot ${isRunning ? 'running' : 'idle'}`} />
+        <span>{stageProgress ? `${stageLabel} ${stageProgress}` : '就绪'}</span>
       </div>
 
-      <div className="studio-actions">
-        <button className="btn btn-ghost btn-sm" onClick={() => router.refresh()}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
-          </svg>
+      {/* Episode chip */}
+      {episodeNum != null && (
+        <span className="studio-episode-chip">第 {episodeNum} 集</span>
+      )}
+
+      {/* Tool mode buttons */}
+      <div className="tool-modes" style={{ marginLeft: 12 }}>
+        {TOOL_MODES.map((t) => (
+          <button
+            key={t.key}
+            className={`tool-mode-btn ${isToolActive(t.key) ? 'active' : ''}`}
+            onClick={() => handleToolMode(t.key)}
+            title={t.label}
+          >
+            {t.icon}
+            <span className={`tool-badge ${isToolActive(t.key) ? 'show' : ''}`} />
+          </button>
+        ))}
+      </div>
+
+      <div style={{ flex: 1 }} />
+
+      {/* Actions — prototype pattern */}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button className="topbar-btn" onClick={() => setAgentDialogOpen(!agentDialogOpen)}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 2l1.5 3 3.3.5-2.4 2.3.6 3.2L8 9.5 4.5 11l.6-3.2L3.2 5.5 6.5 5z"/></svg>
+          技能库
         </button>
-        <button className="btn btn-primary btn-sm">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-          </svg>
-          开始制作
+        <button className="topbar-btn" onClick={() => router.push('/short-series/projects')}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4"/></svg>
+          设置
+        </button>
+        <button className="topbar-btn primary" onClick={() => setAgentDialogOpen(true)}>
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
+          一键生成
         </button>
       </div>
     </header>

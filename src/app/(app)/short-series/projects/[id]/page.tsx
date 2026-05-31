@@ -229,7 +229,18 @@ export default function ProjectDetailPage() {
     ({ completed: '✓', failed: '✗', running: '→', pending: '—' } as Record<string, string>)[status] || '';
 
   if (projectLoading) {
-    return <div className="pd-content"><p className="text-sm text-muted text-center py-12">加载中...</p></div>;
+    return (
+      <div className="pd-content">
+        <div className="skeleton" style={{ height: 48, borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-8)', maxWidth: 400 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-8)' }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton" style={{ height: 64, borderRadius: 'var(--radius-md)' }} />
+          ))}
+        </div>
+        <div className="skeleton" style={{ height: 24, borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-4)', maxWidth: 200 }} />
+        <div className="skeleton" style={{ height: 120, borderRadius: 'var(--radius-md)' }} />
+      </div>
+    );
   }
   if (projectError) {
     return (
@@ -264,6 +275,15 @@ export default function ProjectDetailPage() {
             <h1 className="title">{project.title}</h1>
             <div className="meta-row">
               {project.style && <span className="style-tag">{STYLE_LABELS[project.style] || project.style}</span>}
+              <span className="meta-dot" />
+              <span className="meta-stat">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                {project.characters || 0} 角色
+              </span>
+              <span className="meta-stat">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                {project.scenes || 0} 场景
+              </span>
             </div>
           </div>
           <button className="btn btn-brand" onClick={() => { setShowAddDialog(true); setEpTitle(''); }}>
@@ -289,7 +309,11 @@ export default function ProjectDetailPage() {
 
         <div className="ep-list">
           {episodesLoading ? (
-            <div className="empty-box"><p>加载剧集中...</p></div>
+            <div className="ep-list">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton" style={{ height: 64, borderRadius: 'var(--radius-md)' }} />
+              ))}
+            </div>
           ) : episodes.length === 0 ? (
             <div className="empty-box"><p>点击上方「添加集」创建第一集</p></div>
           ) : (
@@ -586,7 +610,7 @@ export default function ProjectDetailPage() {
         }
         .title {
           font-size: var(--text-3xl);
-          font-weight: 400;
+          font-weight: 700;
           line-height: 1.2;
           color: var(--fg);
           letter-spacing: -0.02em;
@@ -628,7 +652,7 @@ export default function ProjectDetailPage() {
           gap: var(--space-2);
           font-family: var(--font-mono);
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: 700;
           color: var(--meta);
           letter-spacing: 0.08em;
           text-transform: uppercase;
@@ -670,7 +694,7 @@ export default function ProjectDetailPage() {
           justify-content: center;
           font-family: var(--font-mono);
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: 700;
           color: var(--fg-2);
           transition: background 0.18s, border-color 0.18s, color 0.18s;
         }
@@ -782,7 +806,7 @@ export default function ProjectDetailPage() {
         }
         .dlg-head h2 {
           font-size: 28px;
-          font-weight: 600;
+          font-weight: 800;
           color: var(--fg);
           letter-spacing: -0.03em;
         }
@@ -793,7 +817,7 @@ export default function ProjectDetailPage() {
         }
         .dlg-kicker {
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: 700;
           letter-spacing: 0.14em;
           text-transform: uppercase;
           color: var(--meta);
@@ -807,7 +831,7 @@ export default function ProjectDetailPage() {
           padding: 0 var(--space-3);
           border-radius: var(--radius-pill);
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: 700;
           background: rgba(62, 207, 142, 0.12);
           color: var(--accent);
         }
@@ -858,7 +882,7 @@ export default function ProjectDetailPage() {
         }
         .cfg-card .kk {
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: var(--meta);
@@ -866,7 +890,7 @@ export default function ProjectDetailPage() {
         }
         .cfg-card label {
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: 600;
           color: var(--fg-2);
         }
         .dlg-foot {
@@ -1055,7 +1079,7 @@ export default function ProjectDetailPage() {
           gap: 4px;
         }
         .ht {
-          font-weight: 500;
+          font-weight: 600;
           color: var(--fg);
           font-size: var(--text-sm);
         }
@@ -1145,7 +1169,7 @@ export default function ProjectDetailPage() {
         }
         .tdsec h4 {
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: 600;
           color: var(--fg);
           margin-bottom: 4px;
         }
