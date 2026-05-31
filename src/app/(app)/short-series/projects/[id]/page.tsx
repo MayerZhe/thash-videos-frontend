@@ -90,6 +90,9 @@ function fmtDuration(s: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
+// Static export: no prerendered paths (all client-side routing).
+export function generateStaticParams() { return []; }
+
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();

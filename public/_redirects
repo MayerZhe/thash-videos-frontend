@@ -1,0 +1,3 @@
+# SPA fallback for dynamic routes: serve index.html so
+# React can handle client-side routing on page refresh.
+/short-series/* /index.html 200

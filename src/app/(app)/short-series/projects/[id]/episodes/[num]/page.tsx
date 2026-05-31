@@ -29,6 +29,9 @@ import TweakPanel from '@/components/content-creation/TweakPanel';
 import { STAGE_NAMES } from '@/lib/types';
 import type { StageLabel, Version, PipelineState, PipelineJobStatus, PipelinePrecheckResponse } from '@/lib/types';
 
+// Static export: no prerendered paths (all client-side routing).
+export function generateStaticParams() { return []; }
+
 export default function ContentCreationPage() {
   const params = useParams();
   const router = useRouter();
