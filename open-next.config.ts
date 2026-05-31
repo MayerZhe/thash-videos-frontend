@@ -1,12 +1,7 @@
-// All fields optional, default to "dummy". See:
-// https://github.com/opennextjs/opennextjs-cloudflare/blob/main/packages/cloudflare/src/api/config.ts
-//
-// CloudflareOverrides = {
-//   incrementalCache?: "dummy" | IncrementalCache,
-//   tagCache?: "dummy" | TagCache,
-//   queue?: "dummy" | "direct" | Queue,
-//   cachePurge?: "dummy" | CDNInvalidationHandler,
-//   enableCacheInterception?: boolean,
-// }
-
-export default {};
+// Minimum valid OpenNext config. Cloudflare adapter reads
+// CloudflareOverrides (incrementalCache/tagCache/queue/cachePurge) from
+// the top level; OpenNext base requires at least { default: {} }.
+// All Cloudflare-specific fields default to "dummy".
+export default {
+  default: {},
+};
