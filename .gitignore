@@ -8,3 +8,22 @@ node_modules/
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Database files
+*.db
+*.db-journal
+
+# Build artifacts
+*.tsbuildinfo
+*.js.map
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
