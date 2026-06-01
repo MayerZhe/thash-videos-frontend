@@ -1,8 +1,34 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Static export for Cloudflare Pages. All pages are client-rendered
-  // and call https://api.videos.thash.app for backend data.
-  output: 'export',
+  // Cloudflare Pages handles routing via opennextjs-cloudflare adapter.
+  // Do NOT use output: 'standalone' — it breaks Cloudflare Pages routing.
+
+  // Security headers for all routes
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self'",
+              "connect-src 'self' https:",
+            ].join('; '),
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

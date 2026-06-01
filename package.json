@@ -5,7 +5,7 @@
   "description": "videos.thash — AI短剧创作平台",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NEXT_PRIVATE_WORKER_THREADS=false next build",
     "build:next": "next build",
     "start": "next start",
     "lint": "next lint",
